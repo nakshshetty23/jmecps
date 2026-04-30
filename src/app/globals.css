@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter), Arial, Helvetica, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-display: var(--font-space-grotesk), Arial, sans-serif;
+  
+  --color-base: #0D1117;
+  --color-surface: #161B22;
+  --color-electrical: #EAB308;
+  --color-mechanical: #38BDF8;
+  --color-text-primary: #F8FAFC;
+  --color-border-line: #30363D;
+}
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: var(--color-base);
+  --foreground: var(--color-text-primary);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Blueprint Grid Background */
+  background-image: 
+    linear-gradient(rgba(48, 54, 61, 0.5) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(48, 54, 61, 0.5) 1px, transparent 1px);
+  background-size: 40px 40px;
+  background-position: center top;
+}
+
+/* Base link styles for article bodies */
+.article-content a {
+  color: var(--color-mechanical);
+  text-decoration: underline;
+  transition: none;
+}
+.article-content a:hover {
+  color: var(--color-electrical);
+}
+
+.heading-display {
+  font-family: var(--font-space-grotesk);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.subheading-mono {
+  font-family: var(--font-jetbrains-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--color-mechanical);
+  font-size: 0.875rem;
+}
+
+.btn-primary {
+  background-color: var(--color-electrical);
+  color: #000;
+  font-family: var(--font-jetbrains-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1.5rem;
+  border: 1px solid var(--color-electrical);
+  transition: none; /* Snap effect */
+  cursor: pointer;
+}
+.btn-primary:active {
+  transform: scale(0.98);
+}
+.btn-primary:hover {
+  background-color: transparent;
+  color: var(--color-electrical);
+}
+
+.card-terminal {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-line);
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  transition: none;
+}
+.card-terminal:hover {
+  border-color: var(--color-mechanical);
+}
+/* Crosshair effect on hover */
+.card-terminal::before, .card-terminal::after {
+  content: '';
+  position: absolute;
+  background-color: transparent;
+  transition: none;
+}
+.card-terminal:hover::before {
+  top: 10px; right: 6px; width: 8px; height: 1px; background-color: var(--color-mechanical);
+}
+.card-terminal:hover::after {
+  top: 6px; right: 10px; width: 1px; height: 8px; background-color: var(--color-mechanical);
+}
+
