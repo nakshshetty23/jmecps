@@ -59,9 +59,9 @@ export default function MonthlyMessage() {
                 <strong className="text-[#38BDF8] font-bold">Sustainability</strong> has become a central priority across all domains. Energy conservation, renewable technologies, green manufacturing, waste reduction, and carbon-aware engineering solutions are receiving global attention. Future engineering must not only be intelligent but also sustainable and socially responsible.
               </p>
               
-              <div className="font-mono text-sm text-[#EAB308] p-5 bg-[#0D1117] border border-[#30363D] uppercase tracking-widest mt-6">
-                [CALL_TO_ACTION] At JMECPS, we encourage researchers, academicians, industry experts, and innovators to contribute high-quality research that addresses these emerging challenges and opportunities. Interdisciplinary collaboration will be the key driver of future progress.
-              </div>
+              <p>
+                At JMECPS, we encourage researchers, academicians, industry experts, and innovators to contribute high-quality research that addresses these emerging challenges and opportunities. Interdisciplinary collaboration will be the key driver of future progress.
+              </p>
               
               <p className="mt-4">
                 We remain committed to publishing impactful, peer-reviewed, open-access research that advances knowledge and benefits society worldwide.

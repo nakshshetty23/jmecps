@@ -118,7 +118,7 @@ export default function Navigation() {
                 JMECPS
               </Link>
               <div className="hidden lg:flex flex-col border-l border-[#30363D] pl-4">
-                <span className="font-mono text-xs text-[#38BDF8] tracking-widest uppercase">The Journal of Mechanical, Electronics and Cyber Physical System</span>
+                <span className="font-mono text-xs text-[#38BDF8] tracking-widest uppercase">Journal of Mechanical, Electronics and Cyber Physical System</span>
                 <span className="font-mono text-[10px] text-[#F8FAFC] opacity-60 uppercase tracking-widest mt-0.5">Peer-Reviewed | Open Access | Intl. Journal</span>
               </div>
             </div>

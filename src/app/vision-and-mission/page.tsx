@@ -19,7 +19,6 @@ export default function VisionAndMission() {
           {/* Vision Card */}
           <div className="card-terminal mb-8 border-[#38BDF8]">
             <h2 className="heading-display text-2xl text-[#F8FAFC] mb-4 flex items-center gap-3">
-              <span className="text-[#38BDF8]">[VIS]</span>
               Vision
             </h2>
             <p className="text-[1.05rem] text-[#F8FAFC] opacity-80 leading-relaxed text-justify">
@@ -30,7 +29,6 @@ export default function VisionAndMission() {
           {/* Mission Card */}
           <div className="card-terminal mb-8 border-[#EAB308]">
             <h2 className="heading-display text-2xl text-[#F8FAFC] mb-6 flex items-center gap-3">
-              <span className="text-[#EAB308]">[MIS]</span>
               Mission
             </h2>
             <ul className="space-y-4 font-mono text-sm text-[#F8FAFC] opacity-80">
