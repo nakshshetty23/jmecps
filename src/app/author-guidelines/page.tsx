@@ -55,37 +55,37 @@ export default function AuthorGuidelines() {
 
       <div className="flex flex-col lg:flex-row gap-12">
         <div className="flex-grow">
-          <h1 className="heading-display text-3xl pb-4 mb-8 border-b border-[#30363D] text-[#EAB308]">
+          <h1 className="heading-display text-3xl pb-4 mb-8 border-b border-border text-accent">
             [ AUTHOR GUIDELINES ]
           </h1>
           
           <div className="card-terminal mb-8">
-            <p className="text-[1.05rem] text-[#F8FAFC] opacity-80 leading-relaxed text-justify mb-6">
+            <p className="text-[1.05rem] text-text opacity-80 leading-relaxed text-justify mb-6">
               Thank you for considering the Journal of Mechanical, Electronics and Cyber Physical System (JMECPS) for your research publication. To ensure a smooth and efficient review process, we request all prospective authors to strictly adhere to the following manuscript preparation guidelines before submission.
             </p>
             
             <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
               {guidelines.map((item, index) => (
-                <div key={index} className="flex flex-col p-6 bg-[#0D1117] border border-[#30363D] hover:border-[#38BDF8] transition-none group">
-                  <div className="flex items-center gap-4 mb-3 border-b border-[#30363D] pb-3">
-                    <div className="flex-shrink-0 w-8 h-8 border border-[#38BDF8] text-[#38BDF8] flex items-center justify-center group-hover:bg-[#38BDF8] group-hover:text-black transition-none">
+                <div key={index} className="flex flex-col p-6 bg-background border border-border hover:border-primary transition-none group">
+                  <div className="flex items-center gap-4 mb-3 border-b border-border pb-3">
+                    <div className="flex-shrink-0 w-8 h-8 border border-primary text-primary flex items-center justify-center group-hover:bg-primary group-hover:text-text transition-none">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="square" strokeLinejoin="miter" strokeWidth="2" d={item.icon} />
                       </svg>
                     </div>
-                    <h3 className="heading-display text-lg text-[#F8FAFC]">
+                    <h3 className="heading-display text-lg text-text">
                       {item.title}
                     </h3>
                   </div>
-                  <p className="text-sm text-[#F8FAFC] opacity-80 leading-relaxed">
+                  <p className="text-sm text-text opacity-80 leading-relaxed">
                     {item.detail}
                   </p>
                 </div>
               ))}
             </div>
 
-            <div className="mt-10 p-6 bg-[#161B22] border-t-2 border-[#EAB308] text-center border-l border-r border-b border-x-[#30363D] border-b-[#30363D]">
-              <p className="font-mono text-[#F8FAFC] mb-4 uppercase tracking-widest text-sm">SYS_READY: Proceed to manuscript upload</p>
+            <div className="mt-10 p-6 bg-card border-t-2 border-accent text-center border-l border-r border-b border-x-[var(--color-border)] border-b-[var(--color-border)]">
+              <p className="font-mono text-text mb-4 uppercase tracking-widest text-sm">SYS_READY: Proceed to manuscript upload</p>
               <a href="/submission" className="btn-primary inline-block">
                 INITIATE_SUBMISSION
               </a>

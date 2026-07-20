@@ -20,20 +20,20 @@ export default function Archive() {
 
       <div className="flex flex-col lg:flex-row gap-12">
         <div className="flex-grow">
-          <h1 className="heading-display text-3xl pb-4 mb-8 border-b border-[#30363D] text-[#EAB308]">
+          <h1 className="heading-display text-3xl pb-4 mb-8 border-b border-border text-accent">
             [ VOLUMES AND ISSUES ]
           </h1>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {archives.map((item, index) => (
-              <div key={index} className="card-terminal group flex flex-col hover:border-[#38BDF8]">
+              <div key={index} className="card-terminal group flex flex-col hover:border-primary">
                 
-                <h3 className="heading-display text-2xl text-[#F8FAFC] mb-2">
-                  VOL_0{item.vol} <span className="text-[#38BDF8]">ISS_0{item.issue}</span>
+                <h3 className="heading-display text-2xl text-text mb-2">
+                  VOL_0{item.vol} <span className="text-primary">ISS_0{item.issue}</span>
                 </h3>
-                <p className="font-mono text-sm text-[#F8FAFC] opacity-80 mb-6 bg-[#0D1117] border border-[#30363D] inline-block px-3 py-1 uppercase tracking-widest">{item.date}</p>
+                <p className="font-mono text-sm text-text opacity-80 mb-6 bg-background border border-border inline-block px-3 py-1 uppercase tracking-widest">{item.date}</p>
                 
-                <div className="mt-auto pt-4 border-t border-[#30363D]">
-                  <Link href="#" className="inline-flex items-center text-[#EAB308] hover:bg-[#EAB308] hover:text-black px-2 py-1 transition-none uppercase font-mono tracking-widest border border-transparent hover:border-black text-xs">
+                <div className="mt-auto pt-4 border-t border-border">
+                  <Link href="#" className="inline-flex items-center text-accent hover:bg-accent hover:text-white px-2 py-1 transition-none uppercase font-mono tracking-widest border border-transparent hover:border-accent text-xs">
                     [ VIEW_ARTICLES ]
                   </Link>
                 </div>

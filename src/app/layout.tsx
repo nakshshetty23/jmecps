@@ -3,6 +3,8 @@ import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
+import { ThemeProvider } from "@/components/ThemeContext";
+import { themeScript } from "@/utils/themeInit";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -30,13 +32,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.variable} ${jetBrainsMono.variable} ${spaceGrotesk.variable} font-sans antialiased min-h-screen flex flex-col`}>
-        <Navigation />
-        <main className="flex-grow w-full">
-          {children}
-        </main>
-        <Footer />
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
+      <body className={`${inter.variable} ${jetBrainsMono.variable} ${spaceGrotesk.variable} bg-slate-50 text-slate-900 dark:bg-[#0D1117] dark:text-gray-100 min-h-screen flex flex-col`}>
+        <ThemeProvider initialTheme="system">
+          <Navigation />
+          <main className="flex-grow w-full">
+            {children}
+          </main>
+          <Footer />
+        </ThemeProvider>
       </body>
     </html>
   );

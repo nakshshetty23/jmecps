@@ -7,53 +7,53 @@ export default function Profile() {
 
       <div className="flex flex-col lg:flex-row gap-12">
         <div className="flex-grow">
-          <div className="flex items-center justify-between border-b border-[#30363D] pb-4 mb-8">
-            <h1 className="heading-display text-3xl text-[#EAB308]">
+          <div className="flex items-center justify-between border-b border-border pb-4 mb-8">
+            <h1 className="heading-display text-3xl text-accent">
               [ NODE_PROFILE ]
             </h1>
-            <span className="font-mono text-sm text-[#38BDF8] border border-[#38BDF8] px-3 py-1 bg-[#0D1117]">
+            <span className="font-mono text-sm text-primary border border-primary px-3 py-1 bg-background">
               SYS_STATUS: ONLINE
             </span>
           </div>
           
           {/* Identity Card */}
-          <div className="card-terminal mb-8 border-[#38BDF8] relative overflow-hidden">
-            <div className="absolute top-0 right-0 px-3 py-1 bg-[#0D1117] border-l border-b border-[#30363D] font-mono text-xs text-[#30363D]">
+          <div className="card-terminal mb-8 border-primary relative overflow-hidden">
+            <div className="absolute top-0 right-0 px-3 py-1 bg-background border-l border-b border-border font-mono text-xs text-border">
               ID_CARD_ACTIVE
             </div>
 
             <div className="flex flex-col md:flex-row gap-8 items-start">
               <div className="flex-shrink-0">
-                <div className="w-32 h-32 border-2 border-[#38BDF8] flex items-center justify-center bg-[#0D1117] relative">
-                  <div className="absolute top-1 left-1 w-2 h-2 bg-[#EAB308]"></div>
-                  <div className="absolute bottom-1 right-1 w-2 h-2 bg-[#38BDF8]"></div>
-                  <span className="heading-display text-5xl text-[#F8FAFC]">AT</span>
+                <div className="w-32 h-32 border-2 border-primary flex items-center justify-center bg-background relative">
+                  <div className="absolute top-1 left-1 w-2 h-2 bg-accent"></div>
+                  <div className="absolute bottom-1 right-1 w-2 h-2 bg-primary"></div>
+                  <span className="heading-display text-5xl text-text">AT</span>
                 </div>
               </div>
               
               <div className="flex-grow">
-                <h2 className="heading-display text-2xl text-[#F8FAFC] mb-1">
+                <h2 className="heading-display text-2xl text-text mb-1">
                   Dr. Alan Turing
                 </h2>
-                <p className="font-mono text-sm text-[#EAB308] uppercase tracking-widest mb-4">
+                <p className="font-mono text-sm text-accent uppercase tracking-widest mb-4">
                   [ AUTHOR / REVIEWER ]
                 </p>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-sm text-[#F8FAFC] opacity-80">
-                  <div className="flex flex-col border-b border-[#30363D] pb-2">
-                    <span className="text-xs text-[#38BDF8] uppercase tracking-widest mb-1">System ID</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-sm text-text opacity-80">
+                  <div className="flex flex-col border-b border-border pb-2">
+                    <span className="text-xs text-primary uppercase tracking-widest mb-1">System ID</span>
                     <span>USR-9024X</span>
                   </div>
-                  <div className="flex flex-col border-b border-[#30363D] pb-2">
-                    <span className="text-xs text-[#38BDF8] uppercase tracking-widest mb-1">Email Address</span>
+                  <div className="flex flex-col border-b border-border pb-2">
+                    <span className="text-xs text-primary uppercase tracking-widest mb-1">Email Address</span>
                     <span>alan.turing@example.edu</span>
                   </div>
-                  <div className="flex flex-col border-b border-[#30363D] pb-2">
-                    <span className="text-xs text-[#38BDF8] uppercase tracking-widest mb-1">Institution</span>
+                  <div className="flex flex-col border-b border-border pb-2">
+                    <span className="text-xs text-primary uppercase tracking-widest mb-1">Institution</span>
                     <span>Institute of Advanced Technology</span>
                   </div>
-                  <div className="flex flex-col border-b border-[#30363D] pb-2">
-                    <span className="text-xs text-[#38BDF8] uppercase tracking-widest mb-1">Department</span>
+                  <div className="flex flex-col border-b border-border pb-2">
+                    <span className="text-xs text-primary uppercase tracking-widest mb-1">Department</span>
                     <span>Computer Science & Engineering</span>
                   </div>
                 </div>
@@ -62,7 +62,7 @@ export default function Profile() {
                   <button className="btn-primary py-2 px-4 text-xs">
                     EDIT_PROFILE
                   </button>
-                  <button className="border border-[#30363D] text-[#F8FAFC] font-mono text-xs hover:border-[#EAB308] hover:text-[#EAB308] px-4 py-2 uppercase tracking-widest transition-none bg-[#0D1117]">
+                  <button className="border border-border text-text font-mono text-xs hover:border-accent hover:text-accent px-4 py-2 uppercase tracking-widest transition-none bg-background">
                     UPDATE_CREDENTIALS
                   </button>
                 </div>
@@ -72,61 +72,61 @@ export default function Profile() {
 
           {/* Metrics Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="card-terminal flex flex-col items-center justify-center text-center p-6 hover:border-[#EAB308]">
-              <span className="heading-display text-4xl text-[#EAB308] mb-2">03</span>
-              <span className="font-mono text-xs text-[#F8FAFC] opacity-60 uppercase tracking-widest">Total Submissions</span>
+            <div className="card-terminal flex flex-col items-center justify-center text-center p-6 hover:border-accent">
+              <span className="heading-display text-4xl text-accent mb-2">03</span>
+              <span className="font-mono text-xs text-text opacity-60 uppercase tracking-widest">Total Submissions</span>
             </div>
-            <div className="card-terminal flex flex-col items-center justify-center text-center p-6 hover:border-[#38BDF8]">
-              <span className="heading-display text-4xl text-[#38BDF8] mb-2">01</span>
-              <span className="font-mono text-xs text-[#F8FAFC] opacity-60 uppercase tracking-widest">Under Review</span>
+            <div className="card-terminal flex flex-col items-center justify-center text-center p-6 hover:border-primary">
+              <span className="heading-display text-4xl text-primary mb-2">01</span>
+              <span className="font-mono text-xs text-text opacity-60 uppercase tracking-widest">Under Review</span>
             </div>
-            <div className="card-terminal flex flex-col items-center justify-center text-center p-6 hover:border-[#EAB308]">
-              <span className="heading-display text-4xl text-[#EAB308] mb-2">02</span>
-              <span className="font-mono text-xs text-[#F8FAFC] opacity-60 uppercase tracking-widest">Published</span>
+            <div className="card-terminal flex flex-col items-center justify-center text-center p-6 hover:border-accent">
+              <span className="heading-display text-4xl text-accent mb-2">02</span>
+              <span className="font-mono text-xs text-text opacity-60 uppercase tracking-widest">Published</span>
             </div>
-            <div className="card-terminal flex flex-col items-center justify-center text-center p-6 hover:border-[#38BDF8]">
-              <span className="heading-display text-4xl text-[#38BDF8] mb-2">05</span>
-              <span className="font-mono text-xs text-[#F8FAFC] opacity-60 uppercase tracking-widest">Reviews Completed</span>
+            <div className="card-terminal flex flex-col items-center justify-center text-center p-6 hover:border-primary">
+              <span className="heading-display text-4xl text-primary mb-2">05</span>
+              <span className="font-mono text-xs text-text opacity-60 uppercase tracking-widest">Reviews Completed</span>
             </div>
           </div>
 
           {/* Activity Log */}
           <div className="card-terminal">
-            <h3 className="heading-display text-xl text-[#F8FAFC] mb-4 border-b border-[#30363D] pb-3">
+            <h3 className="heading-display text-xl text-text mb-4 border-b border-border pb-3">
               [ RECENT_ACTIVITY ]
             </h3>
             
             <div className="space-y-4 font-mono text-sm">
-              <div className="flex justify-between items-center p-3 border border-[#30363D] bg-[#0D1117]">
+              <div className="flex justify-between items-center p-3 border border-border bg-background">
                 <div>
-                  <span className="text-[#38BDF8] block mb-1">MANUSCRIPT SUBMITTED</span>
-                  <span className="text-[#F8FAFC] opacity-80 text-xs">"Cyber Physical Systems in Autonomous Manufacturing"</span>
+                  <span className="text-primary block mb-1">MANUSCRIPT SUBMITTED</span>
+                  <span className="text-text opacity-80 text-xs">"Cyber Physical Systems in Autonomous Manufacturing"</span>
                 </div>
                 <div className="text-right">
-                  <span className="block text-[#F8FAFC] opacity-50 text-xs">2026-04-12</span>
-                  <span className="text-[#EAB308] text-xs">STATUS: UNDER REVIEW</span>
+                  <span className="block text-text opacity-50 text-xs">2026-04-12</span>
+                  <span className="text-accent text-xs">STATUS: UNDER REVIEW</span>
                 </div>
               </div>
               
-              <div className="flex justify-between items-center p-3 border border-[#30363D] bg-[#0D1117]">
+              <div className="flex justify-between items-center p-3 border border-border bg-background">
                 <div>
-                  <span className="text-[#EAB308] block mb-1">REVIEW SUBMITTED</span>
-                  <span className="text-[#F8FAFC] opacity-80 text-xs">"AI-Driven Predictive Maintenance in Industrial IoT"</span>
+                  <span className="text-accent block mb-1">REVIEW SUBMITTED</span>
+                  <span className="text-text opacity-80 text-xs">"AI-Driven Predictive Maintenance in Industrial IoT"</span>
                 </div>
                 <div className="text-right">
-                  <span className="block text-[#F8FAFC] opacity-50 text-xs">2026-03-28</span>
-                  <span className="text-[#38BDF8] text-xs">STATUS: COMPLETED</span>
+                  <span className="block text-text opacity-50 text-xs">2026-03-28</span>
+                  <span className="text-primary text-xs">STATUS: COMPLETED</span>
                 </div>
               </div>
 
-              <div className="flex justify-between items-center p-3 border border-[#30363D] bg-[#0D1117]">
+              <div className="flex justify-between items-center p-3 border border-border bg-background">
                 <div>
-                  <span className="text-[#38BDF8] block mb-1">MANUSCRIPT PUBLISHED</span>
-                  <span className="text-[#F8FAFC] opacity-80 text-xs">"Advances in Robotics and Mechatronics Systems"</span>
+                  <span className="text-primary block mb-1">MANUSCRIPT PUBLISHED</span>
+                  <span className="text-text opacity-80 text-xs">"Advances in Robotics and Mechatronics Systems"</span>
                 </div>
                 <div className="text-right">
-                  <span className="block text-[#F8FAFC] opacity-50 text-xs">2026-01-15</span>
-                  <Link href="/current-issue" className="text-[#EAB308] text-xs hover:text-[#F8FAFC] underline transition-none">VIEW_ARTICLE</Link>
+                  <span className="block text-text opacity-50 text-xs">2026-01-15</span>
+                  <Link href="/current-issue" className="text-accent text-xs hover:text-text underline transition-none">VIEW_ARTICLE</Link>
                 </div>
               </div>
             </div>

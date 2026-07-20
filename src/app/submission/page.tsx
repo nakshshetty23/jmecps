@@ -33,14 +33,14 @@ export default function Submission() {
 
       <div className="flex flex-col lg:flex-row gap-12">
         <div className="flex-grow">
-          <h1 className="heading-display text-3xl pb-4 mb-8 border-b border-[#30363D] text-[#EAB308]">
+          <h1 className="heading-display text-3xl pb-4 mb-8 border-b border-border text-accent">
             [ AUTHOR PORTAL: SUBMIT MANUSCRIPT ]
           </h1>
 
           {success && (
-            <div className="bg-[#161B22] border-l-4 border-[#EAB308] text-[#F8FAFC] p-6 mb-8">
+            <div className="bg-card border-l-4 border-accent text-text p-6 mb-8">
               <div className="flex items-center mb-2">
-                <span className="text-[#EAB308] mr-3 font-mono">[SUCCESS]</span>
+                <span className="text-accent mr-3 font-mono">[SUCCESS]</span>
                 <p className="heading-display text-lg">Submission acknowledged.</p>
               </div>
               <p className="font-mono text-sm opacity-80 mt-2">SYS_MSG: We will review your manuscript shortly and contact you via email.</p>
@@ -50,7 +50,7 @@ export default function Submission() {
           <form onSubmit={handleSubmit} className="card-terminal space-y-6">
             
             <div className="relative">
-              <label htmlFor="authorName" className="block text-xs font-mono text-[#38BDF8] mb-2 uppercase tracking-widest">[ AUTHOR FULL NAME ]</label>
+              <label htmlFor="authorName" className="block text-xs font-mono text-primary mb-2 uppercase tracking-widest">[ AUTHOR FULL NAME ]</label>
               <input
                 type="text"
                 id="authorName"
@@ -58,13 +58,13 @@ export default function Submission() {
                 required
                 value={formData.authorName}
                 onChange={handleChange}
-                className="block w-full border border-[#30363D] focus:border-[#EAB308] focus:ring-0 sm:text-sm px-4 py-3 bg-[#0D1117] text-[#F8FAFC] transition-none outline-none font-mono"
+                className="block w-full border border-border focus:border-accent focus:ring-0 sm:text-sm px-4 py-3 bg-background text-text transition-none outline-none font-mono"
                 placeholder="Dr. John Smith"
               />
             </div>
             
             <div className="relative">
-              <label htmlFor="email" className="block text-xs font-mono text-[#38BDF8] mb-2 uppercase tracking-widest">[ EMAIL ADDRESS ]</label>
+              <label htmlFor="email" className="block text-xs font-mono text-primary mb-2 uppercase tracking-widest">[ EMAIL ADDRESS ]</label>
               <input
                 type="email"
                 id="email"
@@ -72,13 +72,13 @@ export default function Submission() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="block w-full border border-[#30363D] focus:border-[#EAB308] focus:ring-0 sm:text-sm px-4 py-3 bg-[#0D1117] text-[#F8FAFC] transition-none outline-none font-mono"
+                className="block w-full border border-border focus:border-accent focus:ring-0 sm:text-sm px-4 py-3 bg-background text-text transition-none outline-none font-mono"
                 placeholder="john.smith@university.edu"
               />
             </div>
 
             <div className="relative">
-              <label htmlFor="paperTitle" className="block text-xs font-mono text-[#38BDF8] mb-2 uppercase tracking-widest">[ MANUSCRIPT TITLE ]</label>
+              <label htmlFor="paperTitle" className="block text-xs font-mono text-primary mb-2 uppercase tracking-widest">[ MANUSCRIPT TITLE ]</label>
               <input
                 type="text"
                 id="paperTitle"
@@ -86,13 +86,13 @@ export default function Submission() {
                 required
                 value={formData.paperTitle}
                 onChange={handleChange}
-                className="block w-full border border-[#30363D] focus:border-[#EAB308] focus:ring-0 sm:text-sm px-4 py-3 bg-[#0D1117] text-[#F8FAFC] transition-none outline-none font-mono"
+                className="block w-full border border-border focus:border-accent focus:ring-0 sm:text-sm px-4 py-3 bg-background text-text transition-none outline-none font-mono"
                 placeholder="Enter the full title of your research"
               />
             </div>
 
             <div className="relative">
-              <label htmlFor="abstract" className="block text-xs font-mono text-[#38BDF8] mb-2 uppercase tracking-widest">[ ABSTRACT ]</label>
+              <label htmlFor="abstract" className="block text-xs font-mono text-primary mb-2 uppercase tracking-widest">[ ABSTRACT ]</label>
               <textarea
                 id="abstract"
                 name="abstract"
@@ -100,7 +100,7 @@ export default function Submission() {
                 rows={5}
                 value={formData.abstract}
                 onChange={handleChange}
-                className="block w-full border border-[#30363D] focus:border-[#EAB308] focus:ring-0 sm:text-sm px-4 py-3 bg-[#0D1117] text-[#F8FAFC] transition-none outline-none resize-none font-mono"
+                className="block w-full border border-border focus:border-accent focus:ring-0 sm:text-sm px-4 py-3 bg-background text-text transition-none outline-none resize-none font-mono"
                 placeholder="Provide a brief summary of your paper (max 300 words)..."
               />
             </div>
@@ -113,7 +113,7 @@ export default function Submission() {
               >
                 {isSubmitting ? (
                   <span className="flex items-center font-mono">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-text" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>

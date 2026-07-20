@@ -28,14 +28,14 @@ function LoginContent() {
       <div className="max-w-md w-full space-y-8 card-terminal">
         
         <div>
-          <h2 className="mt-2 text-center heading-display text-3xl text-[#F8FAFC]">
+          <h2 className="mt-2 text-center heading-display text-3xl text-text">
             {isRegistering ? "[ SYSTEM_REGISTER ]" : "[ SYSTEM_AUTH ]"}
           </h2>
-          <p className="mt-2 text-center font-mono text-sm text-[#F8FAFC] opacity-60">
+          <p className="mt-2 text-center font-mono text-sm text-text opacity-60">
             {isRegistering ? "OR " : "OR "}
             <button 
               onClick={() => setIsRegistering(!isRegistering)} 
-              className="font-medium text-[#EAB308] hover:text-[#38BDF8] transition-none focus:outline-none uppercase tracking-widest"
+              className="font-medium text-accent hover:text-primary transition-none focus:outline-none uppercase tracking-widest"
             >
               {isRegistering ? "ACCESS EXISTING NODE" : "INITIALIZE NEW NODE"}
             </button>
@@ -48,38 +48,38 @@ function LoginContent() {
               <>
                 <div>
                   <label htmlFor="name" className="sr-only">Full Name</label>
-                  <input id="name" name="name" type="text" required className="appearance-none relative block w-full px-3 py-3 border border-[#30363D] placeholder-[#30363D] text-[#F8FAFC] bg-[#0D1117] focus:outline-none focus:border-[#EAB308] focus:ring-0 font-mono text-sm" placeholder="[ FULL_NAME ]" />
+                  <input id="name" name="name" type="text" required className="appearance-none relative block w-full px-3 py-3 border border-border placeholder-[var(--color-border)] text-text bg-background focus:outline-none focus:border-accent focus:ring-0 font-mono text-sm" placeholder="[ FULL_NAME ]" />
                 </div>
                 <div>
                   <label htmlFor="mobile" className="sr-only">Mobile Number</label>
-                  <input id="mobile" name="mobile" type="tel" required className="appearance-none relative block w-full px-3 py-3 border border-[#30363D] placeholder-[#30363D] text-[#F8FAFC] bg-[#0D1117] focus:outline-none focus:border-[#EAB308] focus:ring-0 font-mono text-sm" placeholder="[ MOBILE_NUMBER ]" />
+                  <input id="mobile" name="mobile" type="tel" required className="appearance-none relative block w-full px-3 py-3 border border-border placeholder-[var(--color-border)] text-text bg-background focus:outline-none focus:border-accent focus:ring-0 font-mono text-sm" placeholder="[ MOBILE_NUMBER ]" />
                 </div>
                 <div>
                   <label htmlFor="affiliation" className="sr-only">Affiliation / Institution</label>
-                  <input id="affiliation" name="affiliation" type="text" required className="appearance-none relative block w-full px-3 py-3 border border-[#30363D] placeholder-[#30363D] text-[#F8FAFC] bg-[#0D1117] focus:outline-none focus:border-[#EAB308] focus:ring-0 font-mono text-sm" placeholder="[ INSTITUTION ]" />
+                  <input id="affiliation" name="affiliation" type="text" required className="appearance-none relative block w-full px-3 py-3 border border-border placeholder-[var(--color-border)] text-text bg-background focus:outline-none focus:border-accent focus:ring-0 font-mono text-sm" placeholder="[ INSTITUTION ]" />
                 </div>
                 <div>
                   <label htmlFor="department" className="sr-only">Department</label>
-                  <input id="department" name="department" type="text" required className="appearance-none relative block w-full px-3 py-3 border border-[#30363D] placeholder-[#30363D] text-[#F8FAFC] bg-[#0D1117] focus:outline-none focus:border-[#EAB308] focus:ring-0 font-mono text-sm" placeholder="[ DEPARTMENT ]" />
+                  <input id="department" name="department" type="text" required className="appearance-none relative block w-full px-3 py-3 border border-border placeholder-[var(--color-border)] text-text bg-background focus:outline-none focus:border-accent focus:ring-0 font-mono text-sm" placeholder="[ DEPARTMENT ]" />
                 </div>
                 <div>
                   <label htmlFor="title" className="sr-only">Academic Title / Degree</label>
-                  <input id="title" name="title" type="text" required className="appearance-none relative block w-full px-3 py-3 border border-[#30363D] placeholder-[#30363D] text-[#F8FAFC] bg-[#0D1117] focus:outline-none focus:border-[#EAB308] focus:ring-0 font-mono text-sm" placeholder="[ ACADEMIC_TITLE ]" />
+                  <input id="title" name="title" type="text" required className="appearance-none relative block w-full px-3 py-3 border border-border placeholder-[var(--color-border)] text-text bg-background focus:outline-none focus:border-accent focus:ring-0 font-mono text-sm" placeholder="[ ACADEMIC_TITLE ]" />
                 </div>
               </>
             )}
             <div>
               <label htmlFor="email-address" className="sr-only">Email address</label>
-              <input id="email-address" name="email" type="email" autoComplete="email" required className="appearance-none relative block w-full px-3 py-3 border border-[#30363D] placeholder-[#30363D] text-[#F8FAFC] bg-[#0D1117] focus:outline-none focus:border-[#EAB308] focus:ring-0 font-mono text-sm" placeholder="[ EMAIL_ADDRESS ]" />
+              <input id="email-address" name="email" type="email" autoComplete="email" required className="appearance-none relative block w-full px-3 py-3 border border-border placeholder-[var(--color-border)] text-text bg-background focus:outline-none focus:border-accent focus:ring-0 font-mono text-sm" placeholder="[ EMAIL_ADDRESS ]" />
             </div>
             <div>
               <label htmlFor="password" className="sr-only">Password</label>
-              <input id="password" name="password" type="password" autoComplete="current-password" required className="appearance-none relative block w-full px-3 py-3 border border-[#30363D] placeholder-[#30363D] text-[#F8FAFC] bg-[#0D1117] focus:outline-none focus:border-[#EAB308] focus:ring-0 font-mono text-sm" placeholder="[ PASSWORD ]" />
+              <input id="password" name="password" type="password" autoComplete="current-password" required className="appearance-none relative block w-full px-3 py-3 border border-border placeholder-[var(--color-border)] text-text bg-background focus:outline-none focus:border-accent focus:ring-0 font-mono text-sm" placeholder="[ PASSWORD ]" />
             </div>
             {isRegistering && (
               <div>
                 <label htmlFor="confirm-password" className="sr-only">Confirm Password</label>
-                <input id="confirm-password" name="confirm-password" type="password" required className="appearance-none relative block w-full px-3 py-3 border border-[#30363D] placeholder-[#30363D] text-[#F8FAFC] bg-[#0D1117] focus:outline-none focus:border-[#EAB308] focus:ring-0 font-mono text-sm" placeholder="[ CONFIRM_PASSWORD ]" />
+                <input id="confirm-password" name="confirm-password" type="password" required className="appearance-none relative block w-full px-3 py-3 border border-border placeholder-[var(--color-border)] text-text bg-background focus:outline-none focus:border-accent focus:ring-0 font-mono text-sm" placeholder="[ CONFIRM_PASSWORD ]" />
               </div>
             )}
           </div>
@@ -87,14 +87,14 @@ function LoginContent() {
           {!isRegistering && (
             <div className="flex items-center justify-between font-mono text-xs">
               <div className="flex items-center">
-                <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-[#EAB308] focus:ring-[#EAB308] border-[#30363D] bg-[#0D1117] rounded-none" />
-                <label htmlFor="remember-me" className="ml-2 block text-[#F8FAFC] opacity-80 uppercase tracking-widest">
+                <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 text-accent focus:ring-[var(--color-accent)] border-border bg-background rounded-none" />
+                <label htmlFor="remember-me" className="ml-2 block text-text opacity-80 uppercase tracking-widest">
                   Persist_Session
                 </label>
               </div>
 
               <div>
-                <a href="#" className="font-medium text-[#EAB308] hover:text-[#38BDF8] uppercase tracking-widest transition-none">
+                <a href="#" className="font-medium text-accent hover:text-primary uppercase tracking-widest transition-none">
                   Reset_Password?
                 </a>
               </div>
@@ -114,7 +114,7 @@ function LoginContent() {
 
 export default function Login() {
   return (
-    <Suspense fallback={<div className="min-h-[80vh] flex items-center justify-center font-mono text-[#EAB308]">LOADING_NODE...</div>}>
+    <Suspense fallback={<div className="min-h-[80vh] flex items-center justify-center font-mono text-accent">LOADING_NODE...</div>}>
       <LoginContent />
     </Suspense>
   );

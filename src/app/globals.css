@@ -5,67 +5,93 @@
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --font-display: var(--font-space-grotesk), Arial, sans-serif;
   
-  --color-base: #0D1117;
-  --color-surface: #161B22;
-  --color-electrical: #EAB308;
-  --color-mechanical: #38BDF8;
-  --color-text-primary: #F8FAFC;
-  --color-border-line: #30363D;
+  --color-background: var(--background);
+  --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-accent: var(--accent);
+  --color-text: var(--text);
+  --color-border: var(--border);
 }
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: var(--color-base);
-  --foreground: var(--color-text-primary);
+  --background: #F8FAFC;
+  --card: #FFFFFF;
+  --border: #E2E8F0;
+  --text: #0F172A;
+  --primary: #0F172A;
+  --accent: #0F172A;
+  --foreground: var(--text);
+  --grid-line: rgba(15, 23, 42, 0.04);
+  --btn-text: #FFFFFF;
 }
 
-body {
-  background-color: var(--background);
-  color: var(--foreground);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  /* Blueprint Grid Background */
-  background-image: 
-    linear-gradient(rgba(48, 54, 61, 0.5) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(48, 54, 61, 0.5) 1px, transparent 1px);
-  background-size: 40px 40px;
-  background-position: center top;
+.dark {
+  --background: #0D1117;
+  --card: #161B22;
+  --border: #30363D;
+  --text: #F8FAFC;
+  --primary: #38BDF8;
+  --accent: #EAB308;
+  --foreground: var(--text);
+  --grid-line: rgba(56, 189, 248, 0.04);
+  --btn-text: #0D1117;
+}
+
+@layer base {
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Blueprint Grid Background - Dynamic grid line colors */
+    background-image: 
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-position: center top;
+  }
+
+  .dark body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
 }
 
 /* Base link styles for article bodies */
 .article-content a {
-  color: var(--color-mechanical);
+  color: var(--color-primary);
   text-decoration: underline;
   transition: none;
 }
 .article-content a:hover {
-  color: var(--color-electrical);
+  color: var(--color-accent);
 }
 
 .heading-display {
   font-family: var(--font-space-grotesk);
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: var(--color-text);
 }
 
 .subheading-mono {
   font-family: var(--font-jetbrains-mono);
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  color: var(--color-mechanical);
+  color: var(--color-primary);
   font-size: 0.875rem;
 }
 
 .btn-primary {
-  background-color: var(--color-electrical);
-  color: #000;
+  background-color: var(--color-primary);
+  color: var(--btn-text);
   font-family: var(--font-jetbrains-mono);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 0.75rem 1.5rem;
-  border: 1px solid var(--color-electrical);
+  border: 1px solid var(--color-primary);
   transition: none; /* Snap effect */
   cursor: pointer;
 }
@@ -74,19 +100,19 @@ body {
 }
 .btn-primary:hover {
   background-color: transparent;
-  color: var(--color-electrical);
+  color: var(--color-primary);
 }
 
 .card-terminal {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-border-line);
+  background-color: var(--color-card);
+  border: 1px solid var(--color-border);
   padding: 1.5rem;
   position: relative;
   overflow: hidden;
   transition: none;
 }
 .card-terminal:hover {
-  border-color: var(--color-mechanical);
+  border-color: var(--color-primary);
 }
 /* Crosshair effect on hover */
 .card-terminal::before, .card-terminal::after {
@@ -96,9 +122,9 @@ body {
   transition: none;
 }
 .card-terminal:hover::before {
-  top: 10px; right: 6px; width: 8px; height: 1px; background-color: var(--color-mechanical);
+  top: 10px; right: 6px; width: 8px; height: 1px; background-color: var(--color-primary);
 }
 .card-terminal:hover::after {
-  top: 6px; right: 10px; width: 1px; height: 8px; background-color: var(--color-mechanical);
+  top: 6px; right: 10px; width: 1px; height: 8px; background-color: var(--color-primary);
 }
 

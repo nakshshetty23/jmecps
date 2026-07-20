@@ -63,34 +63,34 @@ export default function Policy() {
 
       <div className="flex flex-col lg:flex-row gap-12">
         <div className="flex-grow">
-          <h1 className="heading-display text-3xl pb-4 mb-8 border-b border-[#30363D] text-[#EAB308]">
+          <h1 className="heading-display text-3xl pb-4 mb-8 border-b border-border text-accent">
             [ PUBLICATION POLICY & ETHICS ]
           </h1>
           
           <div className="card-terminal mb-8">
-            <p className="text-[1.05rem] text-[#F8FAFC] opacity-80 leading-relaxed text-justify">
+            <p className="text-[1.05rem] text-text opacity-80 leading-relaxed text-justify">
               The Journal of Mechanical, Electronics and Cyber Physical System (JMECPS) is committed to maintaining the highest standards of scholarly publishing, research integrity, transparency and ethical responsibility. The journal follows internationally accepted publication practices to ensure quality, fairness and credibility in academic publishing.
             </p>
           </div>
 
           <div className="space-y-6 mb-8">
             {policies.map((policy, index) => (
-              <div key={index} className="card-terminal flex flex-col group hover:border-[#38BDF8]">
-                <h3 className="heading-display text-xl text-[#F8FAFC] mb-3 flex items-start gap-3 border-b border-[#30363D] pb-3 group-hover:border-[#38BDF8]">
-                  <span className="flex-shrink-0 flex items-center justify-center w-8 h-8 border border-[#EAB308] text-[#EAB308] font-mono text-sm group-hover:bg-[#EAB308] group-hover:text-black transition-none">
+              <div key={index} className="card-terminal flex flex-col group hover:border-primary">
+                <h3 className="heading-display text-xl text-text mb-3 flex items-start gap-3 border-b border-border pb-3 group-hover:border-primary">
+                  <span className="flex-shrink-0 flex items-center justify-center w-8 h-8 border border-accent text-accent font-mono text-sm group-hover:bg-accent group-hover:text-text transition-none">
                     {(index + 1).toString().padStart(2, '0')}
                   </span>
-                  <span className="group-hover:text-[#38BDF8]">{policy.title}</span>
+                  <span className="group-hover:text-primary">{policy.title}</span>
                 </h3>
-                <p className="text-sm text-[#F8FAFC] opacity-80 leading-relaxed text-justify">
+                <p className="text-sm text-text opacity-80 leading-relaxed text-justify">
                   {policy.content}
                 </p>
               </div>
             ))}
           </div>
 
-          <div className="bg-[#161B22] border-t-2 border-t-[#EAB308] border-l border-r border-b border-x-[#30363D] border-b-[#30363D] p-8">
-            <p className="font-mono text-xs text-[#F8FAFC] opacity-60 leading-relaxed text-center uppercase tracking-widest">
+          <div className="bg-card border-t-2 border-t-[var(--color-accent)] border-l border-r border-b border-x-[var(--color-border)] border-b-[var(--color-border)] p-8">
+            <p className="font-mono text-xs text-text opacity-60 leading-relaxed text-center uppercase tracking-widest">
               SYS_NOTE: JMECPS continuously strives to uphold integrity, quality, transparency and academic excellence in all stages of publication.
             </p>
           </div>
