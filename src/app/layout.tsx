@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Inter, JetBrains_Mono, Space_Grotesk, Geist } from "next/font/google";
 import "./globals.css";
-import Navigation from "@/components/Navigation";
-import Footer from "@/components/Footer";
-import { ThemeProvider } from "@/components/ThemeContext";
-import { themeScript } from "@/utils/themeInit";
+import SiteHeader from "@/components/shared/SiteHeader";
+import SiteFooter from "@/components/shared/SiteFooter";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const inter = Inter({
   variable: "--font-inter",
@@ -32,18 +33,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
-      <body className={`${inter.variable} ${jetBrainsMono.variable} ${spaceGrotesk.variable} bg-slate-50 text-slate-900 dark:bg-[#0D1117] dark:text-gray-100 min-h-screen flex flex-col`}>
-        <ThemeProvider initialTheme="system">
-          <Navigation />
-          <main className="flex-grow w-full">
-            {children}
-          </main>
-          <Footer />
-        </ThemeProvider>
+    <html lang="en" suppressHydrationWarning className={cn("font-sans", geist.variable)}>
+      <body className={`${inter.variable} ${jetBrainsMono.variable} ${spaceGrotesk.variable} min-h-screen flex flex-col`}>
+        <SiteHeader />
+        <main className="flex-grow w-full">
+          {children}
+        </main>
+        <SiteFooter />
       </body>
     </html>
   );

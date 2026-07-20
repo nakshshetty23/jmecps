@@ -1,61 +1,183 @@
 @import "tailwindcss";
-
-@theme {
-  --font-sans: var(--font-inter), Arial, Helvetica, sans-serif;
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  --font-display: var(--font-space-grotesk), Arial, sans-serif;
-  
-  --color-background: var(--background);
-  --color-card: var(--card);
-  --color-primary: var(--primary);
-  --color-accent: var(--accent);
-  --color-text: var(--text);
-  --color-border: var(--border);
-}
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * JMECPS brand tokens — "tech-noir / developer grid" (dark-first).
+ * Hex -> OKLCH conversions computed via the sRGB -> OKLab -> OKLCH pipeline
+ * (not eyeballed). Source hexes are noted per line.
+ * Dark is the default theme, not a toggle-only mode: :root carries the
+ * brand palette directly. The .dark class is kept identical for structural
+ * completeness in case a light mode is added in a later session.
+ */
 :root {
-  --background: #F8FAFC;
-  --card: #FFFFFF;
-  --border: #E2E8F0;
-  --text: #0F172A;
-  --primary: #0F172A;
-  --accent: #0F172A;
-  --foreground: var(--text);
-  --grid-line: rgba(15, 23, 42, 0.04);
-  --btn-text: #FFFFFF;
+  --radius: 0.625rem;
+
+  --background: oklch(0.1763 0.0140 258.36); /* #0D1117 */
+  --foreground: oklch(0.9425 0.0111 243.66); /* #E6EDF3 */
+
+  --card: oklch(0.2202 0.0157 256.82); /* #161B22 */
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.2202 0.0157 256.82); /* #161B22 */
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.7952 0.1617 86.05); /* #EAB308 gold */
+  --primary-foreground: oklch(0.1763 0.0140 258.36); /* #0D1117, for contrast on gold */
+
+  --secondary: oklch(0.2202 0.0157 256.82); /* #161B22 */
+  --secondary-foreground: var(--foreground);
+
+  --muted: oklch(0.3300 0.0149 252.31); /* #30363D */
+  --muted-foreground: var(--foreground);
+
+  --accent: oklch(0.7535 0.1390 232.66); /* #38BDF8 cyan */
+  --accent-foreground: oklch(0.1763 0.0140 258.36); /* #0D1117, for contrast on cyan */
+
+  /* No destructive/error color is defined in the JMECPS brand tokens;
+     keeping shadcn's default functional red rather than inventing one. */
+  --destructive: oklch(0.704 0.191 22.216);
+
+  --border: oklch(0.3300 0.0149 252.31); /* #30363D */
+  --input: oklch(0.3300 0.0149 252.31); /* #30363D */
+  --ring: oklch(0.7535 0.1390 232.66); /* #38BDF8 cyan */
+
+  /* Not covered by brand tokens; left at shadcn's neutral defaults. */
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  /* Legacy aliases kept for existing utility classes below and pages
+     carried over from before this session's theme rebuild. */
+  --text: var(--foreground);
+  --btn-text: var(--primary-foreground);
+  --grid-line: oklch(0.7535 0.1390 232.66 / 4%);
 }
 
 .dark {
-  --background: #0D1117;
-  --card: #161B22;
-  --border: #30363D;
-  --text: #F8FAFC;
-  --primary: #38BDF8;
-  --accent: #EAB308;
-  --foreground: var(--text);
-  --grid-line: rgba(56, 189, 248, 0.04);
-  --btn-text: #0D1117;
+  --background: oklch(0.1763 0.0140 258.36);
+  --foreground: oklch(0.9425 0.0111 243.66);
+
+  --card: oklch(0.2202 0.0157 256.82);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.2202 0.0157 256.82);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.7952 0.1617 86.05);
+  --primary-foreground: oklch(0.1763 0.0140 258.36);
+
+  --secondary: oklch(0.2202 0.0157 256.82);
+  --secondary-foreground: var(--foreground);
+
+  --muted: oklch(0.3300 0.0149 252.31);
+  --muted-foreground: var(--foreground);
+
+  --accent: oklch(0.7535 0.1390 232.66);
+  --accent-foreground: oklch(0.1763 0.0140 258.36);
+
+  --destructive: oklch(0.704 0.191 22.216);
+
+  --border: oklch(0.3300 0.0149 252.31);
+  --input: oklch(0.3300 0.0149 252.31);
+  --ring: oklch(0.7535 0.1390 232.66);
+
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+
+  --text: var(--foreground);
+  --btn-text: var(--primary-foreground);
+  --grid-line: oklch(0.7535 0.1390 232.66 / 4%);
+}
+
+@theme inline {
+  --font-sans: var(--font-inter), Arial, Helvetica, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-display: var(--font-space-grotesk), Arial, sans-serif;
+  --font-heading: var(--font-display);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-text: var(--text);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 @layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
   body {
-    background-color: var(--background);
-    color: var(--foreground);
+    @apply bg-background text-foreground;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Blueprint Grid Background - Dynamic grid line colors */
-    background-image: 
+    /* Developer-grid background, per the JMECPS "tech-noir / developer grid" aesthetic */
+    background-image:
       linear-gradient(var(--grid-line) 1px, transparent 1px),
       linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
     background-size: 40px 40px;
     background-position: center top;
-  }
-
-  .dark body {
-    background-color: var(--background);
-    color: var(--foreground);
   }
 }
 
@@ -70,13 +192,13 @@
 }
 
 .heading-display {
-  font-family: var(--font-space-grotesk);
+  font-family: var(--font-display);
   font-weight: 700;
-  color: var(--color-text);
+  color: var(--color-foreground);
 }
 
 .subheading-mono {
-  font-family: var(--font-jetbrains-mono);
+  font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: 0.2em;
   color: var(--color-primary);
@@ -86,7 +208,7 @@
 .btn-primary {
   background-color: var(--color-primary);
   color: var(--btn-text);
-  font-family: var(--font-jetbrains-mono);
+  font-family: var(--font-mono);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -127,4 +249,3 @@
 .card-terminal:hover::after {
   top: 6px; right: 10px; width: 1px; height: 8px; background-color: var(--color-primary);
 }
-
