@@ -1,0 +1,96 @@
+// Prisma schema for JMECPS — Session 1.2 (Database Schema only).
+// Connection URLs live in prisma.config.ts (Prisma 7), not here.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  VISITOR
+  RESEARCHER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum ManuscriptStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  REVISION_REQUESTED
+  RESUBMITTED
+  APPROVED
+  PAYMENT_PENDING
+  PAYMENT_COMPLETED
+  PUBLISHED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  full_name                 String
+  email                     String   @unique
+  password_hash             String
+  institutional_affiliation String
+  role                      UserRole
+  email_verified            Boolean  @default(false)
+  created_at                DateTime @default(now())
+  updated_at                DateTime @updatedAt
+
+  manuscripts Manuscript[]
+
+  @@map("users")
+}
+
+model Manuscript {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title               String
+  abstract            String           @db.Text
+  keywords            String[]
+  primary_author_id   String           @db.Uuid
+  primary_author      User             @relation(fields: [primary_author_id], references: [id])
+  co_authors          Json
+  institution         String
+  subject_category    String
+  references          Json
+  file_url            String
+  file_hash           String
+  sit_conference_flag Boolean          @default(false)
+  status              ManuscriptStatus
+  created_at          DateTime         @default(now())
+  updated_at          DateTime         @updatedAt
+
+  payments Payment[]
+
+  @@index([file_hash])
+  @@index([status])
+  @@map("manuscripts")
+}
+
+model Payment {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  transaction_ref String        @unique
+  manuscript_id   String        @db.Uuid
+  manuscript      Manuscript    @relation(fields: [manuscript_id], references: [id])
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("USD")
+  gateway_log     Json
+  invoice_url     String?
+  status          PaymentStatus
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
+
+  @@index([transaction_ref])
+  @@map("payments")
+}
