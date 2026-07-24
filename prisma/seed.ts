@@ -1,31 +1,31 @@
 import "dotenv/config";
-import { createHash } from "node:crypto";
-import bcrypt from "bcryptjs";
+import { createHash, randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
 
-const SEED_PASSWORD = "ChangeMe123!";
-
 function fakeFileHash(seedLabel: string) {
   return createHash("sha256").update(`jmecps-seed:${seedLabel}`).digest("hex");
 }
 
+// Seed users are public.users profile rows only — they have no
+// corresponding auth.users row, so they can't actually log in via Supabase
+// Auth. They exist to give manuscripts/payments a primary_author_id to
+// point at. Real accounts come from the register flow, which the
+// handle_new_user trigger (prisma/rls-and-triggers.sql) syncs automatically.
 async function main() {
   // Idempotent: safe to re-run without a full `prisma migrate reset`.
   await prisma.payment.deleteMany();
   await prisma.manuscript.deleteMany();
   await prisma.user.deleteMany();
 
-  const password_hash = await bcrypt.hash(SEED_PASSWORD, 10);
-
   const superAdmin = await prisma.user.create({
     data: {
+      id: randomUUID(),
       full_name: "Priya Natarajan",
       email: "priya.natarajan@example.edu",
-      password_hash,
       institutional_affiliation: "JMECPS Editorial Office",
       role: "SUPER_ADMIN",
       email_verified: true,
@@ -35,9 +35,9 @@ async function main() {
   const [adminOne, adminTwo] = await Promise.all([
     prisma.user.create({
       data: {
+        id: randomUUID(),
         full_name: "Marcus Whitfield",
         email: "marcus.whitfield@example.edu",
-        password_hash,
         institutional_affiliation: "Department of Mechanical Engineering, Fictional State University",
         role: "ADMIN",
         email_verified: true,
@@ -45,9 +45,9 @@ async function main() {
     }),
     prisma.user.create({
       data: {
+        id: randomUUID(),
         full_name: "Aiko Tanaka",
         email: "aiko.tanaka@example.edu",
-        password_hash,
         institutional_affiliation: "School of Electronics and Cyber Systems, Meridian Institute of Technology",
         role: "ADMIN",
         email_verified: true,
@@ -58,9 +58,9 @@ async function main() {
   const [researcherOne, researcherTwo, researcherThree] = await Promise.all([
     prisma.user.create({
       data: {
+        id: randomUUID(),
         full_name: "Diego Alvarez",
         email: "diego.alvarez@example.edu",
-        password_hash,
         institutional_affiliation: "Department of Robotics, Northbridge University",
         role: "RESEARCHER",
         email_verified: true,
@@ -68,9 +68,9 @@ async function main() {
     }),
     prisma.user.create({
       data: {
+        id: randomUUID(),
         full_name: "Fatima Al-Rashid",
         email: "fatima.alrashid@example.edu",
-        password_hash,
         institutional_affiliation: "Institute of Cyber-Physical Systems, Al-Farabi Polytechnic",
         role: "RESEARCHER",
         email_verified: false,
@@ -78,9 +78,9 @@ async function main() {
     }),
     prisma.user.create({
       data: {
+        id: randomUUID(),
         full_name: "Liam O'Connell",
         email: "liam.oconnell@example.edu",
-        password_hash,
         institutional_affiliation: "Faculty of Industrial Engineering, Dunmore College",
         role: "RESEARCHER",
         email_verified: true,

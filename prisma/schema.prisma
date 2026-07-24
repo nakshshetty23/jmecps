@@ -37,11 +37,14 @@ enum PaymentStatus {
   REFUNDED
 }
 
+// id is NOT self-generated: it must equal the corresponding auth.users.id
+// (Supabase Auth), populated by the handle_new_user trigger in
+// prisma/rls-and-triggers.sql. Supabase owns credentials — no password_hash
+// column here.
 model User {
-  id                        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                        String   @id @db.Uuid
   full_name                 String
   email                     String   @unique
-  password_hash             String
   institutional_affiliation String
   role                      UserRole
   email_verified            Boolean  @default(false)

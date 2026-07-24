@@ -50,6 +50,15 @@ export default function SiteHeader() {
 
           <div className="flex items-center gap-2">
             <Button
+              render={<Link href="/register" />}
+              nativeButton={false}
+              variant="outline"
+              className="hidden sm:inline-flex border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            >
+              Register
+            </Button>
+
+            <Button
               render={<Link href="/login" />}
               nativeButton={false}
               className="hidden sm:inline-flex bg-accent text-accent-foreground hover:bg-accent/80"
@@ -58,7 +67,10 @@ export default function SiteHeader() {
             </Button>
 
             <Sheet>
-              <SheetTrigger render={<Button variant="outline" size="icon" className="lg:hidden" />}>
+              <SheetTrigger
+                suppressHydrationWarning
+                render={<Button variant="outline" size="icon" className="lg:hidden" suppressHydrationWarning />}
+              >
                 <Menu className="size-5" />
                 <span className="sr-only">Open navigation menu</span>
               </SheetTrigger>
