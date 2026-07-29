@@ -67,8 +67,8 @@ model Manuscript {
   institution         String
   subject_category    String
   references          Json
-  file_url            String
-  file_hash           String
+  file_url            String? // nullable while status = DRAFT; required by app logic before SUBMITTED
+  file_hash           String? // nullable while status = DRAFT; required by app logic before SUBMITTED
   sit_conference_flag Boolean          @default(false)
   status              ManuscriptStatus
   created_at          DateTime         @default(now())

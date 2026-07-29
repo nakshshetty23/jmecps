@@ -15,6 +15,7 @@ const ROUTE_RULES: { prefix: string; category: RouteCategory }[] = [
   { prefix: "/login", category: "auth" },
   { prefix: "/register", category: "auth" },
   { prefix: "/dashboard", category: "researcher" },
+  { prefix: "/submissions", category: "researcher" },
   { prefix: "/review", category: "admin" },
   { prefix: "/control-center", category: "super-admin" },
 ];
