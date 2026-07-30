@@ -26,14 +26,17 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.users (id, full_name, email, institutional_affiliation, role, email_verified)
+  -- updated_at has no DB-level default — Prisma's @updatedAt is enforced by
+  -- Prisma Client only, not the database — so it must be set explicitly here.
+  insert into public.users (id, full_name, email, institutional_affiliation, role, email_verified, updated_at)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'full_name', ''),
     new.email,
     coalesce(new.raw_user_meta_data ->> 'institutional_affiliation', ''),
     coalesce(new.raw_user_meta_data ->> 'role', 'RESEARCHER')::"UserRole",
-    new.email_confirmed_at is not null
+    new.email_confirmed_at is not null,
+    now()
   );
   return new;
 end;

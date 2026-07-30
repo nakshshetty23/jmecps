@@ -5,13 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
 import { buildObjectKey, buildStoredFileUrl, getPresignedUploadUrl } from "@/lib/storage/r2";
+import { uploadRequestSchema, uploadConfirmSchema } from "@/lib/validations/upload";
 
-const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-] as const;
 const ALLOWED_EXTENSIONS = ["pdf", "doc", "docx"];
 
 export type UploadActionResult<T = unknown> = {
@@ -48,32 +43,18 @@ function getFileExtension(fileName: string): string {
   return fileName.includes(".") ? fileName.split(".").pop()!.toLowerCase() : "";
 }
 
-export async function requestUploadUrlAction({
-  manuscriptId,
-  fileName,
-  fileSize,
-  fileType,
-  fileHash,
-  isSITConference,
-  overrideDuplicate,
-}: {
-  manuscriptId: string;
-  fileName: string;
-  fileSize: number;
-  fileType: string;
-  fileHash: string;
-  isSITConference: boolean;
-  overrideDuplicate?: boolean;
-}): Promise<UploadActionResult<{ uploadUrl: string; objectKey: string }>> {
+export async function requestUploadUrlAction(input: unknown): Promise<UploadActionResult<{ uploadUrl: string; objectKey: string }>> {
+  const parsed = uploadRequestSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid upload request." };
+  }
+  const { manuscriptId, fileName, fileType, fileHash, isSITConference, overrideDuplicate } = parsed.data;
+
   const owned = await getOwnedDraftManuscript(manuscriptId);
   if ("error" in owned) return { success: false, error: owned.error };
 
-  if (fileSize > MAX_FILE_SIZE_BYTES) {
-    return { success: false, error: "File exceeds the 25MB size limit." };
-  }
-
   const extension = getFileExtension(fileName);
-  if (!ALLOWED_MIME_TYPES.includes(fileType as (typeof ALLOWED_MIME_TYPES)[number]) || !ALLOWED_EXTENSIONS.includes(extension)) {
+  if (!ALLOWED_EXTENSIONS.includes(extension)) {
     return { success: false, error: "Only PDF and Word documents (.pdf, .doc, .docx) are allowed." };
   }
 
@@ -100,17 +81,15 @@ export async function requestUploadUrlAction({
   return { success: true, data: { uploadUrl, objectKey } };
 }
 
-export async function confirmUploadAction({
-  manuscriptId,
-  objectKey,
-  fileHash,
-  isSITConference,
-}: {
-  manuscriptId: string;
-  objectKey: string;
-  fileHash: string;
-  isSITConference: boolean;
-}): Promise<UploadActionResult<{ fileUrl: string; editorialRouting: "SIT_TRACK" | "STANDARD_TRACK" }>> {
+export async function confirmUploadAction(
+  input: unknown
+): Promise<UploadActionResult<{ fileUrl: string; editorialRouting: "SIT_TRACK" | "STANDARD_TRACK" }>> {
+  const parsed = uploadConfirmSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid upload confirmation." };
+  }
+  const { manuscriptId, objectKey, fileHash, isSITConference } = parsed.data;
+
   const owned = await getOwnedDraftManuscript(manuscriptId);
   if ("error" in owned) return { success: false, error: owned.error };
 

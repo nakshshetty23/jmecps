@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
-import { draftSchema, submitSchema } from "@/lib/validations/submission";
+import { draftSchema } from "@/lib/validations/submission";
+import { sendDraftCreatedEmail } from "@/lib/email";
 
 export type ActionResult<T = unknown> = {
   success: boolean;
@@ -12,7 +13,7 @@ export type ActionResult<T = unknown> = {
   data?: T;
 };
 
-async function getAuthorizedUser() {
+export async function getAuthorizedUser() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -89,79 +90,36 @@ export async function saveDraftAction(
     },
   });
 
+  await sendDraftCreatedEmail(user.email ?? "", created.title);
+
   revalidatePath("/dashboard");
   return { success: true, data: { id: created.id } };
 }
 
-export async function submitManuscriptAction(
-  id: string,
-  input: unknown
-): Promise<ActionResult<{ id: string }>> {
-  const user = await getAuthorizedUser();
-  if (!user) {
-    return {
-      success: false,
-      errors: { _form: ["You must be signed in as a researcher to submit a manuscript."] },
-    };
-  }
-
-  const parsed = submitSchema.safeParse(input);
-  if (!parsed.success) {
-    return { success: false, errors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
-  }
-
-  const existing = await db.manuscript.findUnique({ where: { id } });
-  if (!existing || existing.primary_author_id !== user.id) {
-    return { success: false, errors: { _form: ["Manuscript not found."] } };
-  }
-  if (existing.status !== "DRAFT") {
-    return { success: false, errors: { _form: ["This manuscript has already been submitted."] } };
-  }
-  // No file-upload module exists yet in this build (out of scope for this
-  // task per the metadata-only spec) — block submission honestly rather
-  // than allow a fileless "SUBMITTED" manuscript.
-  if (!existing.file_url) {
-    return {
-      success: false,
-      errors: {
-        _form: [
-          "A manuscript file must be uploaded before submission. File upload isn't available in this build yet — save as a draft for now.",
-        ],
-      },
-    };
-  }
-
-  const data = parsed.data;
-  const correspondingAuthor = data.authors.find((a) => a.isCorresponding)!;
-
-  const updated = await db.manuscript.update({
-    where: { id },
-    data: {
-      title: data.title,
-      abstract: data.abstract,
-      keywords: data.keywords,
-      co_authors: data.authors,
-      institution: correspondingAuthor.institution,
-      subject_category: data.category,
-      references: data.references,
-      status: "SUBMITTED",
-    },
-  });
-
-  revalidatePath(`/submissions/${updated.id}`);
-  revalidatePath("/dashboard");
-  return { success: true, data: { id: updated.id } };
-}
-
 export async function getSubmission(id: string) {
-  const user = await getAuthorizedUser();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return null;
 
   const manuscript = await db.manuscript.findUnique({ where: { id } });
   if (!manuscript) return null;
 
   const role = getUserRole(user);
-  if (manuscript.primary_author_id !== user.id && role !== "SUPER_ADMIN") return null;
+  const isOwner = manuscript.primary_author_id === user.id;
 
-  return manuscript;
+  // ADMIN/SUPER_ADMIN are the reviewer roles (see src/lib/auth/rbac.ts's
+  // /review route gating) — they need to view any manuscript to act on it,
+  // not just their own.
+  if (!isOwner && role !== "SUPER_ADMIN" && role !== "ADMIN") {
+    const email = (user.email ?? "").toLowerCase();
+    const authors = Array.isArray(manuscript.co_authors)
+      ? (manuscript.co_authors as { email?: string }[])
+      : [];
+    const isCoAuthor = authors.some((a) => (a.email ?? "").toLowerCase() === email);
+    if (!isCoAuthor) return null;
+  }
+
+  return { ...manuscript, isOwner };
 }

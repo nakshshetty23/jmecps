@@ -21,13 +21,14 @@ enum ManuscriptStatus {
   DRAFT
   SUBMITTED
   UNDER_REVIEW
-  REVISION_REQUESTED
+  REVISION_REQUIRED
   RESUBMITTED
   APPROVED
   PAYMENT_PENDING
   PAYMENT_COMPLETED
   PUBLISHED
   REJECTED
+  WITHDRAWN
 }
 
 enum PaymentStatus {
@@ -35,6 +36,12 @@ enum PaymentStatus {
   COMPLETED
   FAILED
   REFUNDED
+}
+
+enum EditorialDecision {
+  APPROVED
+  REJECTED
+  REVISION_REQUIRED
 }
 
 // id is NOT self-generated: it must equal the corresponding auth.users.id
@@ -51,7 +58,9 @@ model User {
   created_at                DateTime @default(now())
   updated_at                DateTime @updatedAt
 
-  manuscripts Manuscript[]
+  manuscripts      Manuscript[]
+  auditLogEntries  ManuscriptAuditLog[]
+  editorialReviews EditorialReview[]
 
   @@map("users")
 }
@@ -71,14 +80,63 @@ model Manuscript {
   file_hash           String? // nullable while status = DRAFT; required by app logic before SUBMITTED
   sit_conference_flag Boolean          @default(false)
   status              ManuscriptStatus
+  // Soft lock for the editorial workspace ("Editor X is currently reviewing
+  // this paper") — not a hard DB lock, just an advisory UUID + timestamp
+  // checked/set by src/lib/actions/editorial.ts, with a TTL so an editor
+  // closing their tab without releasing it doesn't lock the paper forever.
+  review_lock_by String?    @db.Uuid
+  review_lock_at DateTime?
   created_at          DateTime         @default(now())
   updated_at          DateTime         @updatedAt
 
-  payments Payment[]
+  payments         Payment[]
+  auditLog         ManuscriptAuditLog[]
+  editorialReviews EditorialReview[]
 
   @@index([file_hash])
   @@index([status])
   @@map("manuscripts")
+}
+
+// Immutable append-only record of every lifecycle-state transition, written
+// by the state machine in src/lib/state-machine/manuscript.ts. actor_id is
+// nullable because SYSTEM-initiated transitions (payment webhook) have no
+// human actor.
+model ManuscriptAuditLog {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  manuscript_id String           @db.Uuid
+  manuscript    Manuscript       @relation(fields: [manuscript_id], references: [id])
+  from_state    ManuscriptStatus
+  to_state      ManuscriptStatus
+  actor_id      String?          @db.Uuid
+  actor         User?            @relation(fields: [actor_id], references: [id])
+  created_at    DateTime         @default(now())
+
+  @@index([manuscript_id])
+  @@map("manuscript_audit_log")
+}
+
+// One row per review round. decision is null while an editor's rubric/notes
+// are still a work-in-progress (autosaved by saveEditorialNotesAction) and
+// gets set once submitEditorialDecisionAction finalizes it — at which point a
+// later review round (e.g. after RESUBMITTED) starts a fresh row rather than
+// overwriting this one, so the review history per manuscript is preserved.
+model EditorialReview {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  manuscript_id     String             @db.Uuid
+  manuscript        Manuscript         @relation(fields: [manuscript_id], references: [id])
+  reviewer_id       String             @db.Uuid
+  reviewer          User               @relation(fields: [reviewer_id], references: [id])
+  internal_notes    String             @db.Text @default("")
+  author_notes      String             @db.Text @default("")
+  rubric_scores     Json               @default("{}")
+  decision          EditorialDecision?
+  revision_deadline DateTime?
+  created_at        DateTime           @default(now())
+  updated_at        DateTime           @updatedAt
+
+  @@index([manuscript_id])
+  @@map("editorial_reviews")
 }
 
 model Payment {

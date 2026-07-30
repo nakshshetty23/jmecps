@@ -6,13 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { sha256HexFromFile, hashSnippet } from "@/lib/crypto";
 import { requestUploadUrlAction, confirmUploadAction } from "@/lib/actions/upload";
+import { ALLOWED_UPLOAD_MIME_TYPES } from "@/lib/validations/upload";
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = [
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-];
 const ALLOWED_EXTENSIONS = ["pdf", "doc", "docx"];
 
 type Stage = "idle" | "hashing" | "checking-duplicates" | "uploading" | "completed" | "error";
@@ -55,7 +51,7 @@ function uploadWithProgress(url: string, file: File, onProgress: (percent: numbe
 function validateFile(file: File): string | null {
   if (file.size > MAX_FILE_SIZE_BYTES) return "File exceeds the 25MB size limit.";
   const extension = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
-  if (!ALLOWED_MIME_TYPES.includes(file.type) || !ALLOWED_EXTENSIONS.includes(extension)) {
+  if (!ALLOWED_UPLOAD_MIME_TYPES.includes(file.type as (typeof ALLOWED_UPLOAD_MIME_TYPES)[number]) || !ALLOWED_EXTENSIONS.includes(extension)) {
     return "Only PDF and Word documents (.pdf, .doc, .docx) are allowed.";
   }
   return null;

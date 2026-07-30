@@ -17,8 +17,11 @@ import {
   SUBJECT_CATEGORY_LABELS,
   type DraftFormValues,
 } from "@/lib/validations/submission";
-import { saveDraftAction, submitManuscriptAction } from "@/lib/actions/submission";
+import { saveDraftAction } from "@/lib/actions/submission";
+import { finalizeSubmissionAction } from "@/lib/actions/finalize-submission";
+import { transitionManuscriptAction } from "@/lib/actions/manuscript-transitions";
 import FileUpload from "@/components/FileUpload";
+import type { ManuscriptStatus } from "@/generated/prisma/client";
 
 const WORD_LIMIT = 300;
 
@@ -35,16 +38,24 @@ interface SubmissionFormProps {
   manuscriptId: string | null;
   initialData?: Partial<DraftFormValues>;
   initialFile?: { fileUrl: string; fileHash: string; isSITConference: boolean } | null;
-  readOnly?: boolean;
+  status?: ManuscriptStatus;
+  isOwner?: boolean;
 }
 
 export default function SubmissionForm({
   manuscriptId,
   initialData,
   initialFile,
-  readOnly = false,
+  status = "DRAFT",
+  isOwner = true,
 }: SubmissionFormProps) {
   const router = useRouter();
+  // The system unlocks author edit mode again once an editor requests
+  // revisions, not just while still a DRAFT — see the editorial workflow's
+  // "Dynamic Revision Edit-Mode Unlock" requirement.
+  const isEditable = isOwner && (status === "DRAFT" || status === "REVISION_REQUIRED");
+  const readOnly = !isEditable;
+  const isResubmitFlow = status === "REVISION_REQUIRED";
   const [currentId, setCurrentId] = useState(manuscriptId);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -157,13 +168,25 @@ export default function SubmissionForm({
     }
 
     const confirmed = window.confirm(
-      "Once submitted, this manuscript can no longer be edited. Submit for review?"
+      isResubmitFlow
+        ? "Resubmitting sends this manuscript back to the editor and locks editing again. Continue?"
+        : "Once submitted, this manuscript can no longer be edited. Submit for review?"
     );
     if (!confirmed) return;
 
     setIsSubmitting(true);
     try {
-      const result = await submitManuscriptAction(currentId, values);
+      // Both flows transition whatever is already persisted, so save any
+      // in-progress edits first rather than silently dropping them.
+      const saveResult = await saveDraftAction(currentId, values);
+      if (!saveResult.success) {
+        setFormError(saveResult.errors?._form?.[0] ?? "Could not save your latest edits before submitting.");
+        return;
+      }
+
+      const result = isResubmitFlow
+        ? await transitionManuscriptAction({ manuscriptId: currentId, targetStatus: "RESUBMITTED" })
+        : await finalizeSubmissionAction({ manuscriptId: currentId });
       if (!result.success) {
         setFormError(result.errors?._form?.[0] ?? "Could not submit manuscript. Please check the form for errors.");
         return;
@@ -184,7 +207,14 @@ export default function SubmissionForm({
       <fieldset disabled={readOnly} className="contents">
       {readOnly && (
         <div className="rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-sm text-primary">
-          This manuscript has already been submitted and can no longer be edited.
+          {isOwner
+            ? "This manuscript is with the editorial team and can no longer be edited."
+            : "This manuscript has already been submitted and can no longer be edited."}
+        </div>
+      )}
+      {isEditable && isResubmitFlow && (
+        <div className="rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent">
+          The editor has requested revisions. Update your manuscript below and resubmit when ready.
         </div>
       )}
       {formError && (
@@ -439,7 +469,7 @@ export default function SubmissionForm({
             disabled={isSavingDraft || isSubmitting}
             className="bg-primary text-primary-foreground hover:bg-primary/80"
           >
-            {isSubmitting ? "Submitting…" : "Submit Manuscript"}
+            {isSubmitting ? "Submitting…" : isResubmitFlow ? "Resubmit for Review" : "Submit Manuscript"}
           </Button>
         </div>
       )}

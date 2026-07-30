@@ -45,6 +45,11 @@ export default function SiteHeader() {
                   </NavigationMenuLink>
                 </NavigationMenuItem>
               ))}
+              <NavigationMenuItem>
+                <NavigationMenuLink render={<Link href="/dashboard" target="_blank" rel="noopener noreferrer" />}>
+                  Dashboard
+                </NavigationMenuLink>
+              </NavigationMenuItem>
             </NavigationMenuList>
           </NavigationMenu>
 
@@ -88,6 +93,14 @@ export default function SiteHeader() {
                       {link.title}
                     </Link>
                   ))}
+                  <Link
+                    href="/dashboard"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2 py-2.5 text-sm text-foreground hover:text-accent transition-colors"
+                  >
+                    Dashboard
+                  </Link>
                   <Button
                     render={<Link href="/login" />}
                     nativeButton={false}
