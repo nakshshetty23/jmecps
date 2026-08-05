@@ -76,3 +76,11 @@ export function sendEditorialDecisionEmail(
 
   return sendEmail(to, `JMECPS — Decision on manuscript ${manuscriptCode}`, lines.join("\n"));
 }
+
+export function sendReminderEmail(to: string, title: string, manuscriptCode: string, statusLabel: string): Promise<void> {
+  return sendEmail(
+    to,
+    `JMECPS — Reminder about manuscript ${manuscriptCode}`,
+    `This is a reminder about your manuscript "${title}" (${manuscriptCode}), currently ${statusLabel}. Check your dashboard for details.`
+  );
+}

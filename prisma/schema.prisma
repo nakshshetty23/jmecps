@@ -58,9 +58,10 @@ model User {
   created_at                DateTime @default(now())
   updated_at                DateTime @updatedAt
 
-  manuscripts      Manuscript[]
-  auditLogEntries  ManuscriptAuditLog[]
-  editorialReviews EditorialReview[]
+  manuscripts         Manuscript[] @relation("ManuscriptAuthor")
+  assignedManuscripts Manuscript[] @relation("ManuscriptAssignedEditor")
+  auditLogEntries     ManuscriptAuditLog[]
+  editorialReviews    EditorialReview[]
 
   @@map("users")
 }
@@ -71,7 +72,7 @@ model Manuscript {
   abstract            String           @db.Text
   keywords            String[]
   primary_author_id   String           @db.Uuid
-  primary_author      User             @relation(fields: [primary_author_id], references: [id])
+  primary_author      User             @relation("ManuscriptAuthor", fields: [primary_author_id], references: [id])
   co_authors          Json
   institution         String
   subject_category    String
@@ -86,6 +87,10 @@ model Manuscript {
   // closing their tab without releasing it doesn't lock the paper forever.
   review_lock_by String?    @db.Uuid
   review_lock_at DateTime?
+  // Durable "who owns this paper" assignment — distinct from review_lock_by,
+  // which is only "who has it open right now."
+  assigned_editor_id String? @db.Uuid
+  assigned_editor     User?  @relation("ManuscriptAssignedEditor", fields: [assigned_editor_id], references: [id])
   created_at          DateTime         @default(now())
   updated_at          DateTime         @updatedAt
 

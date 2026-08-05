@@ -3,12 +3,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
-import type { Manuscript } from "@/generated/prisma/client";
+import type { Manuscript, Payment } from "@/generated/prisma/client";
 
 export interface DashboardData {
   email: string;
   own: Manuscript[];
   coAuthored: Manuscript[];
+  // Latest payment per manuscript id, for APC status badges — most
+  // manuscripts will have none (only PAYMENT_PENDING/PAYMENT_COMPLETED ones
+  // do), so this is a sparse lookup rather than a field on every row.
+  paymentsByManuscriptId: Record<string, Payment>;
 }
 
 export async function getDashboardData(): Promise<DashboardData | null> {
@@ -42,5 +46,18 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     return authors.some((author) => (author.email ?? "").toLowerCase() === email);
   });
 
-  return { email: user.email ?? "", own, coAuthored };
+  const payments = await db.payment.findMany({
+    where: { manuscript_id: { in: own.map((m) => m.id) } },
+    orderBy: { created_at: "desc" },
+  });
+  // findMany above is already newest-first, so the first occurrence per
+  // manuscript id kept here is the latest payment for it.
+  const paymentsByManuscriptId: Record<string, Payment> = {};
+  for (const payment of payments) {
+    if (!paymentsByManuscriptId[payment.manuscript_id]) {
+      paymentsByManuscriptId[payment.manuscript_id] = payment;
+    }
+  }
+
+  return { email: user.email ?? "", own, coAuthored, paymentsByManuscriptId };
 }

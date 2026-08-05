@@ -6,5 +6,12 @@ export default async function DashboardPage() {
   const data = await getDashboardData();
   if (!data) redirect("/login");
 
-  return <WorkspaceDashboard email={data.email} own={data.own} coAuthored={data.coAuthored} />;
+  return (
+    <WorkspaceDashboard
+      email={data.email}
+      own={data.own}
+      coAuthored={data.coAuthored}
+      paymentsByManuscriptId={data.paymentsByManuscriptId}
+    />
+  );
 }

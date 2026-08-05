@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SUBJECT_CATEGORY_LABELS, type SUBJECT_CATEGORIES } from "@/lib/validations/submission";
 import { getManuscriptCode } from "@/lib/manuscript-code";
-import type { Manuscript, ManuscriptStatus } from "@/generated/prisma/client";
+import type { Manuscript, ManuscriptStatus, Payment } from "@/generated/prisma/client";
 
 interface Row extends Manuscript {
   relationship: "own" | "co-author";
@@ -17,6 +17,7 @@ interface WorkspaceDashboardProps {
   email: string;
   own: Manuscript[];
   coAuthored: Manuscript[];
+  paymentsByManuscriptId: Record<string, Payment>;
 }
 
 type Scope = "all" | "mine" | "co-authored" | "drafts";
@@ -84,6 +85,59 @@ function OrcidBadge({ manuscript }: { manuscript: Manuscript }) {
   );
 }
 
+// No payment gateway is wired up in this build (that's a separate,
+// deliberate infrastructure decision — same class as the R2/SES choices
+// made earlier — not something to silently fake here). "Pay Now" and
+// "Complete Payment" surface an honest notice instead of a broken checkout.
+function ApcBadge({ manuscript, payment }: { manuscript: Manuscript; payment: Payment | undefined }) {
+  const [showNotice, setShowNotice] = useState(false);
+
+  if (manuscript.status === "PAYMENT_PENDING") {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-[0.7rem] border-amber-500/40 text-amber-400 bg-amber-500/10">
+            Payment Pending
+          </Badge>
+          <Button size="sm" variant="outline" onClick={() => setShowNotice((v) => !v)}>
+            Pay Now
+          </Button>
+        </div>
+        {showNotice && (
+          <p className="text-xs text-muted-foreground">Payment processing isn't configured for this deployment yet.</p>
+        )}
+      </div>
+    );
+  }
+
+  if (manuscript.status === "PAYMENT_COMPLETED" || (manuscript.status === "PUBLISHED" && payment?.status === "COMPLETED")) {
+    return (
+      <div className="flex items-center gap-2">
+        <Badge variant="outline" className="text-[0.7rem] border-accent/40 text-accent bg-accent/10">
+          Payment Completed
+        </Badge>
+        {payment?.invoice_url ? (
+          <a href={payment.invoice_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline">
+            Download Invoice
+          </a>
+        ) : (
+          <span className="text-xs text-muted-foreground">Invoice not available</span>
+        )}
+      </div>
+    );
+  }
+
+  if (manuscript.status === "PUBLISHED" && !payment) {
+    return (
+      <Badge variant="outline" className="text-[0.7rem] border-emerald-500/40 text-emerald-400 bg-emerald-500/10">
+        Waiver Approved
+      </Badge>
+    );
+  }
+
+  return null;
+}
+
 const QUICK_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "under-review", label: "Under Review" },
@@ -142,11 +196,21 @@ const COMING_SOON_COPY: Record<Exclude<SidebarView, "matrix">, { title: string; 
   },
 };
 
-export default function WorkspaceDashboard({ email, own, coAuthored }: WorkspaceDashboardProps) {
+export default function WorkspaceDashboard({ email, own, coAuthored, paymentsByManuscriptId }: WorkspaceDashboardProps) {
   const [sidebarView, setSidebarView] = useState<SidebarView>("matrix");
   const [scope, setScope] = useState<Scope>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const metrics = useMemo(
+    () => ({
+      total: own.length,
+      activeInReview: own.filter((m) => UNDER_REVIEW_STATUSES.includes(m.status)).length,
+      revisionsRequested: own.filter((m) => m.status === "REVISION_REQUIRED").length,
+      published: own.filter((m) => m.status === "PUBLISHED").length,
+    }),
+    [own]
+  );
 
   const allRows: Row[] = useMemo(
     () => [
@@ -280,6 +344,20 @@ export default function WorkspaceDashboard({ email, own, coAuthored }: Workspace
           </Card>
         ) : (
           <>
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { label: "Total Submissions", value: metrics.total },
+                { label: "Active in Review", value: metrics.activeInReview },
+                { label: "Revisions Requested", value: metrics.revisionsRequested },
+                { label: "Published Papers", value: metrics.published },
+              ].map((metric) => (
+                <div key={metric.label} className="card-terminal flex flex-col gap-1">
+                  <span className="font-mono text-2xl text-primary">{metric.value}</span>
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">{metric.label}</span>
+                </div>
+              ))}
+            </div>
+
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap gap-2">
                 {QUICK_FILTERS.map((filter) => (
@@ -347,6 +425,10 @@ export default function WorkspaceDashboard({ email, own, coAuthored }: Workspace
                         )}
                       </div>
 
+                      {row.relationship === "own" && (
+                        <ApcBadge manuscript={row} payment={paymentsByManuscriptId[row.id]} />
+                      )}
+
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <OrcidBadge manuscript={row} />
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -360,25 +442,20 @@ export default function WorkspaceDashboard({ email, own, coAuthored }: Workspace
                               day: "numeric",
                             })}
                           </span>
-                          {row.relationship === "own" && row.status === "DRAFT" ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              render={<Link href={`/submissions/${row.id}`} />}
-                              nativeButton={false}
-                            >
-                              Continue Draft
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              render={<Link href={`/submissions/${row.id}`} />}
-                              nativeButton={false}
-                            >
-                              View Status
-                            </Button>
-                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            render={<Link href={`/submissions/${row.id}`} />}
+                            nativeButton={false}
+                          >
+                            {row.relationship === "own" && row.status === "DRAFT"
+                              ? "Continue Draft"
+                              : row.relationship === "own" && row.status === "REVISION_REQUIRED"
+                                ? "Upload Revision"
+                                : row.relationship === "own" && row.status === "PUBLISHED"
+                                  ? "View Metadata / DOI"
+                                  : "View Status"}
+                          </Button>
                           {row.file_url &&
                             (isDownloadable ? (
                               <Button

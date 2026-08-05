@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
-import { sendEditorialDecisionEmail } from "@/lib/email";
+import { sendEditorialDecisionEmail, sendReminderEmail } from "@/lib/email";
 import { getManuscriptCode } from "@/lib/manuscript-code";
 import {
   assertTransition,
@@ -50,46 +50,120 @@ export interface QueueRow extends Manuscript {
   hasOrcidOnFile: boolean;
 }
 
-export async function getPendingQueueAction({
-  category,
-  track,
-  reviewStatus,
-}: {
-  category?: string;
-  track?: "SIT_CONF" | "STANDARD";
-  reviewStatus?: "unassigned" | "in-review" | "revision-pending";
-} = {}): Promise<QueueRow[]> {
+export interface ManuscriptForReview {
+  manuscript: Manuscript;
+  manuscriptCode: string;
+  primaryAuthor: { fullName: string; email: string } | null;
+  draftReview: {
+    internalNotes: string;
+    authorNotes: string;
+    rubricScores: Record<string, number>;
+  } | null;
+  lock: { heldByMe: boolean; heldBySomeoneElse: boolean; holderName: string | null };
+}
+
+const UNASSIGNED_ALERT_THRESHOLD_DAYS = 5;
+const PAGE_SIZE_DEFAULT = 10;
+
+export interface TriageQueueRow extends QueueRow {
+  institution: string;
+  assignedEditorName: string | null;
+}
+
+export interface TriagePage {
+  rows: TriageQueueRow[];
+  totalCount: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface TriageSummary {
+  newUnassigned: number;
+  inPeerReview: number;
+  awaitingRevision: number;
+  awaitingPayment: number;
+  staleUnassignedCount: number;
+}
+
+export async function getTriageSummaryAction(): Promise<TriageSummary> {
   const editor = await getAuthorizedEditor();
-  if (!editor) return [];
+  if (!editor) {
+    return { newUnassigned: 0, inPeerReview: 0, awaitingRevision: 0, awaitingPayment: 0, staleUnassignedCount: 0 };
+  }
 
-  const statusFilter: ManuscriptStatus[] =
-    reviewStatus === "unassigned"
-      ? ["SUBMITTED"]
-      : reviewStatus === "in-review"
-        ? ["UNDER_REVIEW"]
-        : reviewStatus === "revision-pending"
-          ? ["RESUBMITTED"]
-          : QUEUE_STATUSES;
+  const counts = await db.manuscript.groupBy({
+    by: ["status"],
+    _count: true,
+    where: { status: { in: ["SUBMITTED", "UNDER_REVIEW", "REVISION_REQUIRED", "PAYMENT_PENDING"] } },
+  });
+  const countByStatus = Object.fromEntries(counts.map((c) => [c.status, c._count])) as Record<string, number>;
 
-  const manuscripts = await db.manuscript.findMany({
+  const staleUnassignedCount = await db.manuscript.count({
     where: {
-      status: { in: statusFilter },
-      ...(category ? { subject_category: category } : {}),
-      ...(track ? { sit_conference_flag: track === "SIT_CONF" } : {}),
+      status: "SUBMITTED",
+      updated_at: { lt: new Date(Date.now() - UNASSIGNED_ALERT_THRESHOLD_DAYS * 24 * 60 * 60 * 1000) },
     },
-    // Verification age is derived from updated_at: while a manuscript sits in
-    // one of the queue statuses, nothing touches it except an editor's own
-    // action (which moves it out of the queue) — so this timestamp reliably
-    // reflects "since when has this been waiting," without a dedicated column.
-    orderBy: { updated_at: "asc" },
   });
 
-  const authorIds = [...new Set(manuscripts.map((m) => m.primary_author_id))];
-  const authors = await db.user.findMany({ where: { id: { in: authorIds } } });
-  const authorNameById = new Map(authors.map((a) => [a.id, a.full_name]));
+  return {
+    newUnassigned: countByStatus.SUBMITTED ?? 0,
+    inPeerReview: countByStatus.UNDER_REVIEW ?? 0,
+    awaitingRevision: countByStatus.REVISION_REQUIRED ?? 0,
+    awaitingPayment: countByStatus.PAYMENT_PENDING ?? 0,
+    staleUnassignedCount,
+  };
+}
+
+export async function getAdminTriageQueueAction({
+  page = 1,
+  limit = PAGE_SIZE_DEFAULT,
+  status,
+  track,
+  category,
+  search,
+}: {
+  page?: number;
+  limit?: number;
+  status?: ManuscriptStatus;
+  track?: "SIT_CONF" | "STANDARD";
+  category?: string;
+  search?: string;
+} = {}): Promise<TriagePage> {
+  const editor = await getAuthorizedEditor();
+  if (!editor) {
+    return { rows: [], totalCount: 0, page: 1, limit, totalPages: 0 };
+  }
+
+  const safePage = Math.max(1, Math.floor(page) || 1);
+
+  const where = {
+    status: { in: status ? [status] : QUEUE_STATUSES },
+    ...(category ? { subject_category: category } : {}),
+    ...(track ? { sit_conference_flag: track === "SIT_CONF" } : {}),
+    ...(search ? { title: { contains: search, mode: "insensitive" as const } } : {}),
+  };
+
+  const totalCount = await db.manuscript.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+  // Out-of-bounds pages fall back to the last valid page rather than erroring.
+  const effectivePage = Math.min(safePage, totalPages);
+
+  const manuscripts = await db.manuscript.findMany({
+    where,
+    orderBy: { updated_at: "asc" },
+    skip: (effectivePage - 1) * limit,
+    take: limit,
+  });
+
+  const userIds = [
+    ...new Set(manuscripts.flatMap((m) => [m.primary_author_id, m.assigned_editor_id]).filter((id): id is string => Boolean(id))),
+  ];
+  const users = await db.user.findMany({ where: { id: { in: userIds } } });
+  const nameById = new Map(users.map((u) => [u.id, u.full_name]));
 
   const now = Date.now();
-  return manuscripts.map((m) => {
+  const rows: TriageQueueRow[] = manuscripts.map((m) => {
     const elapsedMs = now - m.updated_at.getTime();
     const coAuthors = Array.isArray(m.co_authors)
       ? (m.co_authors as { isCorresponding?: boolean; orcid?: string }[])
@@ -101,22 +175,101 @@ export async function getPendingQueueAction({
       daysPending: Math.floor(elapsedMs / (24 * 60 * 60 * 1000)),
       hoursPending: Math.floor(elapsedMs / (60 * 60 * 1000)),
       lockedByActive: isLockActive(m.review_lock_at),
-      primaryAuthorName: authorNameById.get(m.primary_author_id) ?? "Unknown",
+      primaryAuthorName: nameById.get(m.primary_author_id) ?? "Unknown",
       hasOrcidOnFile: Boolean(correspondingAuthor?.orcid),
+      institution: m.institution,
+      assignedEditorName: m.assigned_editor_id ? (nameById.get(m.assigned_editor_id) ?? "Unknown") : null,
     };
   });
+
+  return { rows, totalCount, page: effectivePage, limit, totalPages };
 }
 
-export interface ManuscriptForReview {
-  manuscript: Manuscript;
-  manuscriptCode: string;
-  primaryAuthor: { fullName: string; email: string } | null;
-  draftReview: {
-    internalNotes: string;
-    authorNotes: string;
-    rubricScores: Record<string, number>;
-  } | null;
-  lock: { heldByMe: boolean; heldBySomeoneElse: boolean; holderName: string | null };
+export async function getAvailableEditorsAction(): Promise<{ id: string; fullName: string }[]> {
+  const editor = await getAuthorizedEditor();
+  if (!editor) return [];
+
+  const editors = await db.user.findMany({
+    where: { role: { in: ["ADMIN", "SUPER_ADMIN"] } },
+    orderBy: { full_name: "asc" },
+  });
+  return editors.map((e) => ({ id: e.id, fullName: e.full_name }));
+}
+
+export async function assignEditorAction({
+  manuscriptId,
+  editorId,
+}: {
+  manuscriptId: string;
+  editorId: string | null;
+}): Promise<ActionResult> {
+  const editor = await getAuthorizedEditor();
+  if (!editor) {
+    return { success: false, errors: { _form: ["You must be signed in as an editor."] } };
+  }
+
+  await db.manuscript.update({
+    where: { id: manuscriptId },
+    data: { assigned_editor_id: editorId },
+  });
+
+  revalidatePath("/review");
+  revalidatePath(`/review/${manuscriptId}`);
+  return { success: true };
+}
+
+export interface AuditTrailEntry {
+  fromState: ManuscriptStatus;
+  toState: ManuscriptStatus;
+  actorName: string | null;
+  createdAt: Date;
+}
+
+export async function getManuscriptAuditTrailAction(manuscriptId: string): Promise<AuditTrailEntry[]> {
+  const editor = await getAuthorizedEditor();
+  if (!editor) return [];
+
+  const entries = await db.manuscriptAuditLog.findMany({
+    where: { manuscript_id: manuscriptId },
+    orderBy: { created_at: "desc" },
+  });
+
+  const actorIds = [...new Set(entries.map((e) => e.actor_id).filter((id): id is string => Boolean(id)))];
+  const actors = await db.user.findMany({ where: { id: { in: actorIds } } });
+  const nameById = new Map(actors.map((a) => [a.id, a.full_name]));
+
+  return entries.map((e) => ({
+    fromState: e.from_state,
+    toState: e.to_state,
+    actorName: e.actor_id ? (nameById.get(e.actor_id) ?? "Unknown") : "System",
+    createdAt: e.created_at,
+  }));
+}
+
+export async function sendAuthorReminderAction({ manuscriptId }: { manuscriptId: string }): Promise<ActionResult> {
+  const editor = await getAuthorizedEditor();
+  if (!editor) {
+    return { success: false, errors: { _form: ["You must be signed in as an editor."] } };
+  }
+
+  const manuscript = await db.manuscript.findUnique({ where: { id: manuscriptId } });
+  if (!manuscript) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
+  }
+
+  const primaryAuthor = await db.user.findUnique({ where: { id: manuscript.primary_author_id } });
+  if (!primaryAuthor) {
+    return { success: false, errors: { _form: ["Primary author not found."] } };
+  }
+
+  await sendReminderEmail(
+    primaryAuthor.email,
+    manuscript.title,
+    getManuscriptCode(manuscript.id, manuscript.created_at),
+    manuscript.status.replace(/_/g, " ").toLowerCase()
+  );
+
+  return { success: true };
 }
 
 export async function getManuscriptForReview(manuscriptId: string): Promise<ManuscriptForReview | null> {
