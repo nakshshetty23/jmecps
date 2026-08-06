@@ -30,6 +30,7 @@ const NAV_LINKS = [
   { title: "Author Guidelines", href: "/author-guidelines" },
   { title: "Submission", href: "/submission" },
   { title: "Archives", href: "/volumes-and-issues" },
+  { title: "Search", href: "/search" },
   { title: "Contact Us", href: "/contact-us" },
 ];
 

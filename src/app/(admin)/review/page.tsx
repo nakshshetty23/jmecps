@@ -78,7 +78,7 @@ export default async function AdminReviewQueuePage({
             availableEditors={availableEditors}
             canOverrideState={role === "SUPER_ADMIN"}
           />
-          <PaginationControls page={effectivePage} totalPages={totalPages} searchParams={params} />
+          <PaginationControls page={effectivePage} totalPages={totalPages} searchParams={params} basePath="/review" />
           <p className="text-xs text-muted-foreground">{totalCount} total in queue.</p>
         </CardContent>
       </Card>

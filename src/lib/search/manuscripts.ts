@@ -17,6 +17,11 @@ import { getManuscriptCode } from "@/lib/manuscript-code";
 // below exists as the integration seam if a real external engine
 // (Elasticsearch/Algolia/etc.) is ever added later — today it's a no-op.
 
+export interface AuthorSummary {
+  fullName: string;
+  institution: string;
+}
+
 export interface SearchResultRow {
   id: string;
   manuscriptCode: string;
@@ -27,6 +32,7 @@ export interface SearchResultRow {
   track: "SIT_CONF" | "STANDARD";
   institution: string;
   correspondingAuthorName: string | null;
+  authors: AuthorSummary[];
   publishedAt: Date;
   rank: number;
 }
@@ -53,14 +59,25 @@ export interface SearchPage {
   totalPages: number;
 }
 
+type RawAuthor = { isCorresponding?: boolean; firstName?: string; lastName?: string; institution?: string };
+
+function parseAuthors(coAuthors: unknown): RawAuthor[] {
+  return Array.isArray(coAuthors) ? (coAuthors as RawAuthor[]) : [];
+}
+
 function correspondingAuthorName(coAuthors: unknown): string | null {
-  const authors = Array.isArray(coAuthors)
-    ? (coAuthors as { isCorresponding?: boolean; firstName?: string; lastName?: string }[])
-    : [];
+  const authors = parseAuthors(coAuthors);
   const author = authors.find((a) => a.isCorresponding) ?? authors[0];
   if (!author) return null;
   const name = [author.firstName, author.lastName].filter(Boolean).join(" ");
   return name || null;
+}
+
+function authorSummaries(coAuthors: unknown): AuthorSummary[] {
+  return parseAuthors(coAuthors).map((a) => ({
+    fullName: [a.firstName, a.lastName].filter(Boolean).join(" ") || "Unknown",
+    institution: a.institution ?? "",
+  }));
 }
 
 const TRIGRAM_SIMILARITY_THRESHOLD = 0.15;
@@ -77,6 +94,7 @@ function toSearchPage(rows: RawSearchRow[], totalCount: number, page: number, li
       track: r.sit_conference_flag ? "SIT_CONF" : "STANDARD",
       institution: r.institution,
       correspondingAuthorName: correspondingAuthorName(r.co_authors),
+      authors: authorSummaries(r.co_authors),
       publishedAt: r.updated_at,
       rank: r.rank,
     })),
@@ -87,8 +105,26 @@ function toSearchPage(rows: RawSearchRow[], totalCount: number, page: number, li
   };
 }
 
-async function runSearch(matchCondition: Prisma.Sql, rankExpr: Prisma.Sql, filters: Prisma.Sql[], page: number, limit: number) {
-  const where = Prisma.join([Prisma.sql`status = 'PUBLISHED'::"ManuscriptStatus"`, matchCondition, ...filters], " AND ");
+type SortMode = "relevance" | "newest" | "oldest";
+
+function orderClause(sort: SortMode, hasRank: boolean): Prisma.Sql {
+  if (sort === "oldest") return Prisma.sql`ORDER BY updated_at ASC`;
+  if (sort === "newest" || !hasRank) return Prisma.sql`ORDER BY updated_at DESC`;
+  return Prisma.sql`ORDER BY rank DESC, updated_at DESC`;
+}
+
+async function runSearch(
+  matchCondition: Prisma.Sql | null,
+  rankExpr: Prisma.Sql | null,
+  filters: Prisma.Sql[],
+  page: number,
+  limit: number,
+  sort: SortMode
+) {
+  const where = Prisma.join(
+    [Prisma.sql`status = 'PUBLISHED'::"ManuscriptStatus"`, ...(matchCondition ? [matchCondition] : []), ...filters],
+    " AND "
+  );
 
   const countResult = await db.$queryRaw<{ count: bigint }[]>(
     Prisma.sql`SELECT count(*)::bigint as count FROM manuscripts WHERE ${where}`
@@ -100,10 +136,10 @@ async function runSearch(matchCondition: Prisma.Sql, rankExpr: Prisma.Sql, filte
   const rows = await db.$queryRaw<RawSearchRow[]>(
     Prisma.sql`
       SELECT id, title, abstract, keywords, subject_category, sit_conference_flag, institution, co_authors, created_at, updated_at,
-             ${rankExpr} as rank
+             ${rankExpr ?? Prisma.sql`0`} as rank
       FROM manuscripts
       WHERE ${where}
-      ORDER BY rank DESC, updated_at DESC
+      ${orderClause(sort, rankExpr !== null)}
       LIMIT ${limit} OFFSET ${(effectivePage - 1) * limit}
     `
   );
@@ -115,36 +151,45 @@ async function runSearch(matchCondition: Prisma.Sql, rankExpr: Prisma.Sql, filte
 // relevance-ranked via ts_rank — good for real words). If that finds
 // nothing, falls back to pg_trgm similarity across title/institution/authors
 // so a typo ("manufactring") or a partial name still surfaces something,
-// rather than an empty result for what's likely a near-miss.
+// rather than an empty result for what's likely a near-miss. An empty query
+// is "browse all published papers" rather than "no results" — the public
+// search page defaults to this.
 export async function searchPublishedManuscripts({
   query,
   category,
   track,
+  year,
+  sort = "relevance",
   page = 1,
   limit = 10,
 }: {
   query: string;
   category?: string;
   track?: "SIT_CONF" | "STANDARD";
+  year?: number;
+  sort?: SortMode;
   page?: number;
   limit?: number;
 }): Promise<SearchPage> {
   const trimmed = query.trim();
-  if (!trimmed) {
-    return { rows: [], totalCount: 0, page: 1, limit, totalPages: 0 };
-  }
-
   const safePage = Math.max(1, Math.floor(page) || 1);
   const filters: Prisma.Sql[] = [];
   if (category) filters.push(Prisma.sql`subject_category = ${category}`);
   if (track) filters.push(Prisma.sql`sit_conference_flag = ${track === "SIT_CONF"}`);
+  if (year) filters.push(Prisma.sql`extract(year from updated_at) = ${year}`);
+
+  if (!trimmed) {
+    const browseResult = await runSearch(null, null, filters, safePage, limit, sort);
+    return toSearchPage(browseResult.rows, browseResult.totalCount, browseResult.effectivePage, limit);
+  }
 
   const ftsResult = await runSearch(
     Prisma.sql`search_vector @@ websearch_to_tsquery('english', ${trimmed})`,
     Prisma.sql`ts_rank(search_vector, websearch_to_tsquery('english', ${trimmed}))`,
     filters,
     safePage,
-    limit
+    limit,
+    sort
   );
 
   if (ftsResult.totalCount > 0) {
@@ -158,10 +203,48 @@ export async function searchPublishedManuscripts({
     Prisma.sql`greatest(similarity(title, ${trimmed}), similarity(institution, ${trimmed}), similarity(co_authors::text, ${trimmed}))`,
     filters,
     safePage,
-    limit
+    limit,
+    sort
   );
 
   return toSearchPage(trigramResult.rows, trigramResult.totalCount, trigramResult.effectivePage, limit);
+}
+
+export interface PublishedManuscriptDetail extends SearchResultRow {
+  authors: { fullName: string; institution: string; orcid: string }[];
+  references: string[];
+}
+
+// Public, read-only lookup for the article detail page — deliberately scoped
+// to status = PUBLISHED only, so an unpublished manuscript's id can't be
+// guessed/enumerated to view draft content that hasn't cleared review.
+export async function getPublishedManuscriptDetail(id: string): Promise<PublishedManuscriptDetail | null> {
+  const manuscript = await db.manuscript.findFirst({ where: { id, status: "PUBLISHED" } });
+  if (!manuscript) return null;
+
+  const coAuthors = Array.isArray(manuscript.co_authors)
+    ? (manuscript.co_authors as { firstName?: string; lastName?: string; institution?: string; orcid?: string }[])
+    : [];
+
+  return {
+    id: manuscript.id,
+    manuscriptCode: getManuscriptCode(manuscript.id, manuscript.created_at),
+    title: manuscript.title,
+    abstract: manuscript.abstract,
+    keywords: manuscript.keywords,
+    category: manuscript.subject_category,
+    track: manuscript.sit_conference_flag ? "SIT_CONF" : "STANDARD",
+    institution: manuscript.institution,
+    correspondingAuthorName: correspondingAuthorName(manuscript.co_authors),
+    publishedAt: manuscript.updated_at,
+    rank: 0,
+    authors: coAuthors.map((a) => ({
+      fullName: [a.firstName, a.lastName].filter(Boolean).join(" ") || "Unknown",
+      institution: a.institution ?? "",
+      orcid: a.orcid ?? "",
+    })),
+    references: Array.isArray(manuscript.references) ? (manuscript.references as string[]) : [],
+  };
 }
 
 // Integration seam for the PUBLISHED transition (called from

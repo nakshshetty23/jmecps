@@ -5,10 +5,12 @@ export default function PaginationControls({
   page,
   totalPages,
   searchParams,
+  basePath,
 }: {
   page: number;
   totalPages: number;
   searchParams: Record<string, string | undefined>;
+  basePath: string;
 }) {
   function hrefFor(targetPage: number) {
     const params = new URLSearchParams();
@@ -16,7 +18,7 @@ export default function PaginationControls({
       if (value) params.set(key, value);
     }
     params.set("page", String(targetPage));
-    return `/review?${params.toString()}`;
+    return `${basePath}?${params.toString()}`;
   }
 
   if (totalPages <= 1) return null;
