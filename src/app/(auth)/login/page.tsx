@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
-import { getDashboardPath, type Role } from "@/lib/auth/rbac";
+import { getDashboardPath, getSafeCallbackUrl, type Role } from "@/lib/auth/rbac";
 
 function LoginForm() {
   const router = useRouter();
@@ -36,7 +36,7 @@ function LoginForm() {
       }
 
       const role = data.user?.user_metadata?.role as Role | undefined;
-      const callbackUrl = searchParams.get("callbackUrl");
+      const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));
       router.push(callbackUrl || getDashboardPath(role ?? "RESEARCHER"));
       router.refresh();
     } catch {

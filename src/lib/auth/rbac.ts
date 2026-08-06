@@ -62,3 +62,15 @@ export function getUserRole(user: User): Role {
 export function isEmailVerified(user: User): boolean {
   return user.email_confirmed_at != null;
 }
+
+// Guards against open-redirect via a crafted `?callbackUrl=` — must be a
+// same-origin relative path. Rejects absolute URLs (`https://evil.com`),
+// protocol-relative URLs (`//evil.com`, which browsers resolve to the
+// current scheme + evil.com's host), and backslash tricks some browsers
+// still normalize into `//`.
+export function getSafeCallbackUrl(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
+  return raw;
+}

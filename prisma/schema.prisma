@@ -98,6 +98,14 @@ model Manuscript {
   auditLog         ManuscriptAuditLog[]
   editorialReviews EditorialReview[]
 
+  // Full-text search index — a Postgres GENERATED STORED column (defined in
+  // the migration SQL, since Prisma treats `Unsupported` types as read-only
+  // and won't manage their DDL). Recomputed by Postgres itself on every
+  // write, so it can never drift out of sync with the row — see
+  // src/lib/search/manuscripts.ts for why this replaced a separate
+  // Elasticsearch-style index.
+  search_vector Unsupported("tsvector")?
+
   @@index([file_hash])
   @@index([status])
   @@map("manuscripts")
