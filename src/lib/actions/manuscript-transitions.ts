@@ -14,6 +14,7 @@ import type { ManuscriptStatus } from "@/generated/prisma/client";
 import type { ActionResult } from "./submission";
 import { onManuscriptPublished } from "@/lib/search/manuscripts";
 import { makeSubmitSchema, SUBJECT_CATEGORIES, type AuthorInput } from "@/lib/validations/submission";
+import { logAuditEvent } from "@/lib/audit/logger";
 
 // A generous, fixed ceiling — not the current admin-configured word limit.
 // This gate checks the manuscript is *structurally complete* (title,
@@ -119,6 +120,12 @@ export async function transitionManuscriptAction({
       to_state: targetStatus,
       actor_id: user.id,
     },
+  });
+  await logAuditEvent({
+    userId: user.id,
+    action: "manuscript.transition",
+    resourceId: manuscriptId,
+    metadata: { from: existing.status, to: targetStatus },
   });
 
   // Search indexing hook — see src/lib/search/manuscripts.ts for why this is

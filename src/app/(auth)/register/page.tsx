@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import { recordRegisterAction } from "@/lib/actions/auth-events";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -41,6 +42,11 @@ export default function RegisterPage() {
         setError(signUpError.message);
         return;
       }
+
+      // No-ops until email confirmation establishes a session (this
+      // project has "Confirm email" enabled) — kept correct for when that
+      // changes rather than silently dropped.
+      void recordRegisterAction();
 
       router.push("/dashboard");
       router.refresh();

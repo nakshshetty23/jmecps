@@ -15,6 +15,7 @@ import {
 import type { ActionResult } from "./submission";
 import type { EditorialDecision, Manuscript, ManuscriptStatus } from "@/generated/prisma/client";
 import { getJournalSettings } from "@/lib/journal-settings";
+import { logAuditEvent } from "@/lib/audit/logger";
 
 const QUEUE_STATUSES: ManuscriptStatus[] = ["SUBMITTED", "UNDER_REVIEW", "RESUBMITTED"];
 const REVIEWABLE_STATUSES: ManuscriptStatus[] = ["SUBMITTED", "UNDER_REVIEW", "RESUBMITTED"];
@@ -459,6 +460,12 @@ export async function submitEditorialDecisionAction({
       to_state: decision,
       actor_id: editor.id,
     },
+  });
+  await logAuditEvent({
+    userId: editor.id,
+    action: "manuscript.transition",
+    resourceId: manuscriptId,
+    metadata: { from: existing.status, to: decision, decision: true },
   });
 
   const draft = await db.editorialReview.findFirst({

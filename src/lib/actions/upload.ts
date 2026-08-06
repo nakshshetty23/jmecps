@@ -6,8 +6,12 @@ import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
 import { buildObjectKey, buildStoredFileUrl, getPresignedUploadUrl } from "@/lib/storage/r2";
 import { uploadRequestSchema, uploadConfirmSchema } from "@/lib/validations/upload";
+import { logAuditEvent } from "@/lib/audit/logger";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const ALLOWED_EXTENSIONS = ["pdf", "doc", "docx"];
+const UPLOAD_URL_RATE_LIMIT = 10;
+const UPLOAD_URL_RATE_WINDOW_MS = 60 * 1000;
 
 export type UploadActionResult<T = unknown> = {
   success: boolean;
@@ -36,7 +40,7 @@ async function getOwnedDraftManuscript(manuscriptId: string) {
     return { error: "This manuscript has already been submitted and its file can no longer be changed." } as const;
   }
 
-  return { manuscript } as const;
+  return { manuscript, userId: user.id } as const;
 }
 
 function getFileExtension(fileName: string): string {
@@ -52,6 +56,11 @@ export async function requestUploadUrlAction(input: unknown): Promise<UploadActi
 
   const owned = await getOwnedDraftManuscript(manuscriptId);
   if ("error" in owned) return { success: false, error: owned.error };
+
+  const rateLimit = checkRateLimit(`upload-url:${owned.userId}`, UPLOAD_URL_RATE_LIMIT, UPLOAD_URL_RATE_WINDOW_MS);
+  if (!rateLimit.allowed) {
+    return { success: false, error: "Too many upload requests. Please wait a minute and try again." };
+  }
 
   const extension = getFileExtension(fileName);
   if (!ALLOWED_EXTENSIONS.includes(extension)) {
@@ -78,6 +87,13 @@ export async function requestUploadUrlAction(input: unknown): Promise<UploadActi
   const objectKey = buildObjectKey({ fileName, fileHash, isSITConference });
   const uploadUrl = await getPresignedUploadUrl(objectKey, fileType);
 
+  await logAuditEvent({
+    userId: owned.userId,
+    action: "file.upload_url_requested",
+    resourceId: manuscriptId,
+    metadata: { fileName, fileType, objectKey },
+  });
+
   return { success: true, data: { uploadUrl, objectKey } };
 }
 
@@ -102,6 +118,13 @@ export async function confirmUploadAction(
       file_hash: fileHash,
       sit_conference_flag: isSITConference,
     },
+  });
+
+  await logAuditEvent({
+    userId: owned.userId,
+    action: "file.upload_confirmed",
+    resourceId: manuscriptId,
+    metadata: { objectKey, fileHash },
   });
 
   revalidatePath(`/submissions/${manuscriptId}`);

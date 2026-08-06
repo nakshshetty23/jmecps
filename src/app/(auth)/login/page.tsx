@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { getDashboardPath, getSafeCallbackUrl, type Role } from "@/lib/auth/rbac";
+import { recordLoginAction } from "@/lib/actions/auth-events";
 
 function LoginForm() {
   const router = useRouter();
@@ -34,6 +35,8 @@ function LoginForm() {
         setError(signInError.message);
         return;
       }
+
+      void recordLoginAction();
 
       const role = data.user?.user_metadata?.role as Role | undefined;
       const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));

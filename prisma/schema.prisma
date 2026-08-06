@@ -195,6 +195,28 @@ model UserRoleAuditLog {
   @@map("user_role_audit_log")
 }
 
+// Generic, unified audit feed for security-relevant events that don't
+// already have a dedicated table — auth events and file access. Manuscript
+// transitions and role changes already have their own well-typed tables
+// (ManuscriptAuditLog, UserRoleAuditLog) with purpose-built UI already built
+// around their specific shapes; this doesn't replace them, but the same
+// events are also mirrored here so there's one place to query "everything
+// this user did," across categories, rather than joining three tables.
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String?  @db.Uuid
+  action      String
+  resource_id String?
+  ip_address  String?
+  user_agent  String?
+  metadata    Json?
+  created_at  DateTime @default(now())
+
+  @@index([user_id])
+  @@index([action])
+  @@map("audit_log")
+}
+
 model Payment {
   id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   transaction_ref String        @unique

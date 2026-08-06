@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
 import { getJournalSettings } from "@/lib/journal-settings";
+import { logAuditEvent } from "@/lib/audit/logger";
 import type { UserRole } from "@/generated/prisma/client";
 import type { ActionResult } from "./submission";
 
@@ -186,7 +187,22 @@ export async function updateUserRoleAction({
         changed_by_id: admin.id,
       },
     }),
+    // public.users.role above is a denormalized display copy — every actual
+    // RBAC check (getUserRole in src/lib/auth/rbac.ts) reads the role out of
+    // the Supabase Auth session's user_metadata instead. There's no service
+    // role key configured to go through Supabase's Admin API
+    // (auth.admin.updateUserById), so this updates auth.users directly over
+    // the same Postgres connection — the only path available without that
+    // key. $executeRaw parametrizes both values; no injection surface.
+    db.$executeRaw`update auth.users set raw_user_meta_data = raw_user_meta_data || jsonb_build_object('role', ${newRole}::text) where id = ${userId}::uuid`,
   ]);
+
+  await logAuditEvent({
+    userId: admin.id,
+    action: "user.role_changed",
+    resourceId: userId,
+    metadata: { previousRole: target.role, newRole },
+  });
 
   revalidatePath("/control-center/users");
   return { success: true };

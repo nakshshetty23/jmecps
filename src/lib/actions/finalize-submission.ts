@@ -14,6 +14,7 @@ import {
   type Actor,
 } from "@/lib/state-machine/manuscript";
 import { getAuthorizedUser, type ActionResult } from "./submission";
+import { logAuditEvent } from "@/lib/audit/logger";
 
 // Finalizing operates on whatever is already persisted (SubmissionForm
 // autosaves via saveDraftAction as the user edits) rather than taking a form
@@ -124,6 +125,12 @@ export async function finalizeSubmissionAction({
       to_state: "SUBMITTED",
       actor_id: user.id,
     },
+  });
+  await logAuditEvent({
+    userId: user.id,
+    action: "manuscript.transition",
+    resourceId: manuscriptId,
+    metadata: { from: "DRAFT", to: "SUBMITTED" },
   });
 
   const updated = await db.manuscript.findUniqueOrThrow({ where: { id: manuscriptId } });
