@@ -5,6 +5,7 @@ import { getSubmission } from "@/lib/actions/submission";
 import { SUBJECT_CATEGORIES, type DraftFormValues } from "@/lib/validations/submission";
 import { createClient } from "@/lib/supabase/server";
 import { getUserRole } from "@/lib/auth/rbac";
+import { getJournalSettings, getEnabledCategoryKeys } from "@/lib/journal-settings";
 
 export default async function EditSubmissionPage({
   params,
@@ -23,6 +24,8 @@ export default async function EditSubmissionPage({
     data: { user },
   } = await supabase.auth.getUser();
   const role = user ? getUserRole(user) : "RESEARCHER";
+  const [settings, enabledKeys] = await Promise.all([getJournalSettings(), getEnabledCategoryKeys()]);
+  const availableCategories = SUBJECT_CATEGORIES.filter((c) => enabledKeys.has(c));
 
   const category = SUBJECT_CATEGORIES.find((c) => c === manuscript.subject_category);
 
@@ -59,6 +62,8 @@ export default async function EditSubmissionPage({
         initialFile={initialFile}
         status={manuscript.status}
         isOwner={manuscript.isOwner}
+        wordLimit={settings.abstract_word_limit}
+        availableCategories={availableCategories}
       />
     </div>
   );

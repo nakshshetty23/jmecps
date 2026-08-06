@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,8 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import {
-  draftSchema,
-  submitSchema,
+  makeDraftSchema,
+  makeSubmitSchema,
+  DEFAULT_ABSTRACT_WORD_LIMIT,
   countWords,
   SUBJECT_CATEGORIES,
   SUBJECT_CATEGORY_LABELS,
@@ -22,8 +23,6 @@ import { finalizeSubmissionAction } from "@/lib/actions/finalize-submission";
 import { transitionManuscriptAction } from "@/lib/actions/manuscript-transitions";
 import FileUpload from "@/components/FileUpload";
 import type { ManuscriptStatus } from "@/generated/prisma/client";
-
-const WORD_LIMIT = 300;
 
 const emptyAuthor = {
   firstName: "",
@@ -40,6 +39,14 @@ interface SubmissionFormProps {
   initialFile?: { fileUrl: string; fileHash: string; isSITConference: boolean } | null;
   status?: ManuscriptStatus;
   isOwner?: boolean;
+  // SUPER_ADMIN-editable (control-center/settings) — passed down from the
+  // server page rather than hardcoded, so a policy change takes effect
+  // immediately without a code deploy.
+  wordLimit?: number;
+  // Categories a SUPER_ADMIN has disabled are excluded from new selections,
+  // but a manuscript already filed under one keeps showing it (added back
+  // in below) rather than silently losing its category on next render.
+  availableCategories?: readonly (typeof SUBJECT_CATEGORIES)[number][];
 }
 
 export default function SubmissionForm({
@@ -48,8 +55,20 @@ export default function SubmissionForm({
   initialFile,
   status = "DRAFT",
   isOwner = true,
+  wordLimit = DEFAULT_ABSTRACT_WORD_LIMIT,
+  availableCategories = SUBJECT_CATEGORIES,
 }: SubmissionFormProps) {
   const router = useRouter();
+  const draftSchema = useMemo(() => makeDraftSchema(wordLimit), [wordLimit]);
+  const submitSchema = useMemo(() => makeSubmitSchema(wordLimit), [wordLimit]);
+  const categoryOptions = useMemo(() => {
+    const initialCategory = initialData?.category as (typeof SUBJECT_CATEGORIES)[number] | undefined;
+    if (initialCategory && !availableCategories.includes(initialCategory)) {
+      return [...availableCategories, initialCategory];
+    }
+    return availableCategories;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableCategories]);
   // The system unlocks author edit mode again once an editor requests
   // revisions, not just while still a DRAFT — see the editorial workflow's
   // "Dynamic Revision Edit-Mode Unlock" requirement.
@@ -94,7 +113,7 @@ export default function SubmissionForm({
   const references = watch("references") ?? [];
   const abstractValue = watch("abstract");
   const wordCount = countWords(abstractValue ?? "");
-  const isOverLimit = wordCount > WORD_LIMIT;
+  const isOverLimit = wordCount > wordLimit;
 
   function addKeyword() {
     const value = keywordInput.trim();
@@ -243,7 +262,7 @@ export default function SubmissionForm({
                   isOverLimit ? "text-sm font-medium text-destructive" : "text-sm text-muted-foreground"
                 }
               >
-                {wordCount} / {WORD_LIMIT} words
+                {wordCount} / {wordLimit} words
               </span>
             </div>
             <Textarea id="abstract" rows={8} {...register("abstract")} />
@@ -259,7 +278,7 @@ export default function SubmissionForm({
               className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <option value="">Select a category…</option>
-              {SUBJECT_CATEGORIES.map((value) => (
+              {categoryOptions.map((value) => (
                 <option key={value} value={value}>
                   {SUBJECT_CATEGORY_LABELS[value]}
                 </option>

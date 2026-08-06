@@ -14,6 +14,7 @@ import {
 } from "@/lib/state-machine/manuscript";
 import type { ActionResult } from "./submission";
 import type { EditorialDecision, Manuscript, ManuscriptStatus } from "@/generated/prisma/client";
+import { getJournalSettings } from "@/lib/journal-settings";
 
 const QUEUE_STATUSES: ManuscriptStatus[] = ["SUBMITTED", "UNDER_REVIEW", "RESUBMITTED"];
 const REVIEWABLE_STATUSES: ManuscriptStatus[] = ["SUBMITTED", "UNDER_REVIEW", "RESUBMITTED"];
@@ -62,7 +63,6 @@ export interface ManuscriptForReview {
   lock: { heldByMe: boolean; heldBySomeoneElse: boolean; holderName: string | null };
 }
 
-const UNASSIGNED_ALERT_THRESHOLD_DAYS = 5;
 const PAGE_SIZE_DEFAULT = 10;
 
 export interface TriageQueueRow extends QueueRow {
@@ -99,10 +99,11 @@ export async function getTriageSummaryAction(): Promise<TriageSummary> {
   });
   const countByStatus = Object.fromEntries(counts.map((c) => [c.status, c._count])) as Record<string, number>;
 
+  const { stale_review_threshold_days } = await getJournalSettings();
   const staleUnassignedCount = await db.manuscript.count({
     where: {
       status: "SUBMITTED",
-      updated_at: { lt: new Date(Date.now() - UNASSIGNED_ALERT_THRESHOLD_DAYS * 24 * 60 * 60 * 1000) },
+      updated_at: { lt: new Date(Date.now() - stale_review_threshold_days * 24 * 60 * 60 * 1000) },
     },
   });
 

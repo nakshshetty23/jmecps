@@ -55,44 +55,60 @@ const submitAuthorSchema = z.object({
     .or(z.literal("")),
 });
 
-export const draftSchema = z.object({
-  title: z.string().max(250, "Title must be 250 characters or fewer").optional().default(""),
-  abstract: z
-    .string()
-    .refine((val) => countWords(val) <= 300, "Abstract must be 300 words or fewer")
-    .optional()
-    .default(""),
-  keywords: z.array(z.string().min(1)).max(10, "Provide at most 10 keywords").optional().default([]),
-  authors: z.array(draftAuthorSchema).optional().default([]),
-  // The native <select>'s unselected option is value="" (not undefined) —
-  // normalize that to "not chosen yet" rather than an invalid enum member.
-  category: z.preprocess(
-    (val) => (val === "" ? undefined : val),
-    z.enum(SUBJECT_CATEGORIES).optional()
-  ),
-  references: z.array(z.string()).optional().default([]),
-});
+export const DEFAULT_ABSTRACT_WORD_LIMIT = 300;
 
-export const submitSchema = z.object({
-  title: z.string().min(1, "Title is required").max(250, "Title must be 250 characters or fewer"),
-  abstract: z
-    .string()
-    .min(1, "Abstract is required")
-    .refine((val) => countWords(val) <= 300, "Abstract must be 300 words or fewer"),
-  keywords: z
-    .array(z.string().min(1))
-    .min(3, "Provide at least 3 keywords")
-    .max(10, "Provide at most 10 keywords"),
-  authors: z
-    .array(submitAuthorSchema)
-    .min(1, "At least one author is required")
-    .refine(
-      (authors) => authors.filter((a) => a.isCorresponding).length === 1,
-      "Exactly one author must be marked as the corresponding author"
+// Factories, not fixed schemas — the abstract word limit is a real,
+// SUPER_ADMIN-editable setting (see JournalSettings / control-center/settings),
+// not just cosmetic on the live counter. draftSchema/submitSchema below are
+// the default-limit instances used by every existing caller that doesn't
+// need the current admin-configured value; callers that do (SubmissionForm,
+// finalize-submission.ts, manuscript-transitions.ts) build their own via
+// makeDraftSchema/makeSubmitSchema with the fetched limit.
+export function makeDraftSchema(wordLimit: number = DEFAULT_ABSTRACT_WORD_LIMIT) {
+  return z.object({
+    title: z.string().max(250, "Title must be 250 characters or fewer").optional().default(""),
+    abstract: z
+      .string()
+      .refine((val) => countWords(val) <= wordLimit, `Abstract must be ${wordLimit} words or fewer`)
+      .optional()
+      .default(""),
+    keywords: z.array(z.string().min(1)).max(10, "Provide at most 10 keywords").optional().default([]),
+    authors: z.array(draftAuthorSchema).optional().default([]),
+    // The native <select>'s unselected option is value="" (not undefined) —
+    // normalize that to "not chosen yet" rather than an invalid enum member.
+    category: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      z.enum(SUBJECT_CATEGORIES).optional()
     ),
-  category: z.enum(SUBJECT_CATEGORIES, { message: "Select a subject category" }),
-  references: z.array(z.string().min(1)).optional().default([]),
-});
+    references: z.array(z.string()).optional().default([]),
+  });
+}
+
+export function makeSubmitSchema(wordLimit: number = DEFAULT_ABSTRACT_WORD_LIMIT) {
+  return z.object({
+    title: z.string().min(1, "Title is required").max(250, "Title must be 250 characters or fewer"),
+    abstract: z
+      .string()
+      .min(1, "Abstract is required")
+      .refine((val) => countWords(val) <= wordLimit, `Abstract must be ${wordLimit} words or fewer`),
+    keywords: z
+      .array(z.string().min(1))
+      .min(3, "Provide at least 3 keywords")
+      .max(10, "Provide at most 10 keywords"),
+    authors: z
+      .array(submitAuthorSchema)
+      .min(1, "At least one author is required")
+      .refine(
+        (authors) => authors.filter((a) => a.isCorresponding).length === 1,
+        "Exactly one author must be marked as the corresponding author"
+      ),
+    category: z.enum(SUBJECT_CATEGORIES, { message: "Select a subject category" }),
+    references: z.array(z.string().min(1)).optional().default([]),
+  });
+}
+
+export const draftSchema = makeDraftSchema();
+export const submitSchema = makeSubmitSchema();
 
 export type DraftInput = z.infer<typeof draftSchema>;
 export type SubmitInput = z.infer<typeof submitSchema>;

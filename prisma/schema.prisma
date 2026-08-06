@@ -152,6 +152,49 @@ model EditorialReview {
   @@map("editorial_reviews")
 }
 
+// One row per manuscript subject category (currently the fixed 7 defined in
+// src/lib/validations/submission.ts's SUBJECT_CATEGORIES) — lets a
+// SUPER_ADMIN disable a category so it no longer appears as a choice on new
+// submissions, without deleting the category itself (existing manuscripts
+// already filed under it keep displaying normally). Adding a genuinely new
+// category key would still require a matching label in
+// SUBJECT_CATEGORY_LABELS (a code change) — this only toggles availability
+// of the existing set, not free-form category creation.
+model CategorySetting {
+  key     String  @id
+  enabled Boolean @default(true)
+
+  @@map("category_settings")
+}
+
+// Singleton row (id is always "singleton") for journal-wide configuration.
+model JournalSettings {
+  id                          String   @id @default("singleton")
+  journal_title               String   @default("Journal of Mechanical, Electronics and Cyber Physical Systems")
+  issn                        String   @default("")
+  contact_email                String   @default("")
+  publisher_name               String   @default("")
+  abstract_word_limit          Int      @default(300)
+  stale_review_threshold_days Int      @default(5)
+  updated_at                   DateTime @updatedAt
+
+  @@map("journal_settings")
+}
+
+// Audit trail specifically for role changes — separate from
+// ManuscriptAuditLog, which only tracks manuscript lifecycle transitions.
+model UserRoleAuditLog {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  target_user_id String   @db.Uuid
+  previous_role  UserRole
+  new_role       UserRole
+  changed_by_id  String   @db.Uuid
+  created_at     DateTime @default(now())
+
+  @@index([target_user_id])
+  @@map("user_role_audit_log")
+}
+
 model Payment {
   id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   transaction_ref String        @unique

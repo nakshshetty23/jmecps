@@ -13,7 +13,17 @@ import {
 import type { ManuscriptStatus } from "@/generated/prisma/client";
 import type { ActionResult } from "./submission";
 import { onManuscriptPublished } from "@/lib/search/manuscripts";
-import { submitSchema, SUBJECT_CATEGORIES, type AuthorInput } from "@/lib/validations/submission";
+import { makeSubmitSchema, SUBJECT_CATEGORIES, type AuthorInput } from "@/lib/validations/submission";
+
+// A generous, fixed ceiling — not the current admin-configured word limit.
+// This gate checks the manuscript is *structurally complete* (title,
+// keyword count, author structure, etc.), not that it still satisfies
+// whatever the word-limit policy happens to be today; re-enforcing a
+// possibly-lowered limit against content the author validly submitted
+// under an earlier, higher limit would retroactively block it through no
+// fault of the author's. The real word-limit enforcement point is
+// submission time (finalize-submission.ts).
+const PUBLISH_COMPLETENESS_WORD_CEILING = 100_000;
 
 // Covers every lifecycle transition except DRAFT -> SUBMITTED (that one has
 // extra validation — full metadata re-check, file/hash verification — and
@@ -80,7 +90,7 @@ export async function transitionManuscriptAction({
       category: SUBJECT_CATEGORIES.find((c) => c === existing.subject_category),
       references: Array.isArray(existing.references) ? (existing.references as string[]) : [],
     };
-    const parsed = submitSchema.safeParse(candidate);
+    const parsed = makeSubmitSchema(PUBLISH_COMPLETENESS_WORD_CEILING).safeParse(candidate);
     if (!parsed.success) {
       return {
         success: false,

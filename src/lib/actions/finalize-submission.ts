@@ -3,9 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
-import { submitSchema, SUBJECT_CATEGORIES, type AuthorInput } from "@/lib/validations/submission";
+import { makeSubmitSchema, SUBJECT_CATEGORIES, type AuthorInput } from "@/lib/validations/submission";
 import { sendSubmissionConfirmationEmail } from "@/lib/email";
 import { getManuscriptCode } from "@/lib/manuscript-code";
+import { getJournalSettings } from "@/lib/journal-settings";
 import {
   assertTransition,
   InvalidStateTransitionError,
@@ -61,7 +62,8 @@ export async function finalizeSubmissionAction({
     category: SUBJECT_CATEGORIES.find((c) => c === existing.subject_category),
     references: Array.isArray(existing.references) ? (existing.references as string[]) : [],
   };
-  const parsed = submitSchema.safeParse(candidate);
+  const { abstract_word_limit } = await getJournalSettings();
+  const parsed = makeSubmitSchema(abstract_word_limit).safeParse(candidate);
   if (!parsed.success) {
     return { success: false, errors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
   }
