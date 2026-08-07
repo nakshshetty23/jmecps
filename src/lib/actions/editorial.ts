@@ -17,8 +17,25 @@ import type { EditorialDecision, Manuscript, ManuscriptStatus } from "@/generate
 import { getJournalSettings } from "@/lib/journal-settings";
 import { logAuditEvent } from "@/lib/audit/logger";
 
+// Default (unfiltered) triage queue view — manuscripts actively waiting on
+// an editor. REVISION_REQUIRED is excluded here on purpose: those are
+// sitting with the author, not something an editor needs to triage right now.
 const QUEUE_STATUSES: ManuscriptStatus[] = ["SUBMITTED", "UNDER_REVIEW", "RESUBMITTED"];
+// Statuses submitEditorialDecisionAction may act on — unrelated to queue
+// visibility above; a manuscript already in REVISION_REQUIRED only leaves
+// that state via the author (RESUBMITTED) or a withdrawal, never a fresh
+// editorial decision.
 const REVIEWABLE_STATUSES: ManuscriptStatus[] = ["SUBMITTED", "UNDER_REVIEW", "RESUBMITTED"];
+// Every status an editor is allowed to explicitly filter for or look up by
+// id — the reviewable set above plus REVISION_REQUIRED, so an editor can
+// still pull up "awaiting revision" manuscripts on demand even though they
+// don't appear in the default queue. DRAFT (and, deliberately, every
+// post-decision terminal status — APPROVED/PAYMENT_*/PUBLISHED/REJECTED/
+// WITHDRAWN) stays out of this list: an editor's reach here is scoped to
+// papers actually in front of them for review, not a general manuscript
+// browser. Both the triage queue's ?status= filter and a direct
+// getManuscriptForReview(id) lookup are gated on this list.
+const EDITOR_VISIBLE_STATUSES: ManuscriptStatus[] = ["SUBMITTED", "UNDER_REVIEW", "RESUBMITTED", "REVISION_REQUIRED"];
 
 // A soft lock, not a hard DB lock — it just tells other editors "someone is
 // already in here." If a tab is closed without releasing it, the lock
@@ -139,8 +156,9 @@ export async function getAdminTriageQueueAction({
 
   const safePage = Math.max(1, Math.floor(page) || 1);
 
+  const requestedStatus = status && EDITOR_VISIBLE_STATUSES.includes(status) ? status : undefined;
   const where = {
-    status: { in: status ? [status] : QUEUE_STATUSES },
+    status: { in: requestedStatus ? [requestedStatus] : QUEUE_STATUSES },
     ...(category ? { subject_category: category } : {}),
     ...(track ? { sit_conference_flag: track === "SIT_CONF" } : {}),
     ...(search ? { title: { contains: search, mode: "insensitive" as const } } : {}),
@@ -208,6 +226,11 @@ export async function assignEditorAction({
   const editor = await getAuthorizedEditor();
   if (!editor) {
     return { success: false, errors: { _form: ["You must be signed in as an editor."] } };
+  }
+
+  const manuscript = await db.manuscript.findUnique({ where: { id: manuscriptId } });
+  if (!manuscript || !EDITOR_VISIBLE_STATUSES.includes(manuscript.status)) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
   }
 
   await db.manuscript.update({
@@ -279,7 +302,7 @@ export async function getManuscriptForReview(manuscriptId: string): Promise<Manu
   if (!editor) return null;
 
   const manuscript = await db.manuscript.findUnique({ where: { id: manuscriptId } });
-  if (!manuscript) return null;
+  if (!manuscript || !EDITOR_VISIBLE_STATUSES.includes(manuscript.status)) return null;
 
   const primaryAuthorRow = await db.user.findUnique({ where: { id: manuscript.primary_author_id } });
 

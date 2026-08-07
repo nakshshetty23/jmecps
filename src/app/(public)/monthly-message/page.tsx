@@ -13,7 +13,7 @@ export default function MonthlyMessage() {
       <div className="flex flex-col lg:flex-row gap-12">
         <div className="flex-grow">
           <h1 className="heading-display text-3xl pb-4 mb-8 border-b border-border text-accent">
-            [ FROM THE EDITOR'S DESK ]
+            [ FROM THE EDITOR&apos;S DESK ]
           </h1>
 
           <div className="card-terminal relative border-primary">

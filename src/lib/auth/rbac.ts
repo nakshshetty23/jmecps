@@ -55,8 +55,18 @@ export function getDashboardPath(role: Role): string {
   return role === "VISITOR" ? "/" : DASHBOARD_PATH[role];
 }
 
+// Reads from app_metadata (raw_app_meta_data), not user_metadata
+// (raw_user_meta_data). This distinction is load-bearing: Supabase's client
+// SDK lets any signed-in user rewrite their own user_metadata directly —
+// supabase.auth.updateUser({ data: { role: "SUPER_ADMIN" } }) succeeds for
+// anyone — while app_metadata can only be written via direct SQL or the
+// Admin API (service role), neither of which a client can reach. Every role
+// write in this app goes through updateUserRoleAction's $executeRaw against
+// raw_app_meta_data (src/lib/actions/admin-system.ts) for exactly this
+// reason. If getUserRole ever reads user_metadata again, self-escalation to
+// SUPER_ADMIN is one browser console call away.
 export function getUserRole(user: User): Role {
-  return (user.user_metadata?.role as Role | undefined) ?? "RESEARCHER";
+  return (user.app_metadata?.role as Role | undefined) ?? "RESEARCHER";
 }
 
 export function isEmailVerified(user: User): boolean {

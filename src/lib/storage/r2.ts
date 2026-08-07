@@ -47,3 +47,20 @@ export function buildStoredFileUrl(objectKey: string): string {
   const publicBase = process.env.R2_PUBLIC_BASE_URL;
   return publicBase ? `${publicBase.replace(/\/$/, "")}/${objectKey}` : objectKey;
 }
+
+const OBJECT_KEY_PATTERN = /^uploads\/(sit-conf|general)\/\d{4}\/\d+_([0-9a-f]{64})\.[a-z0-9]+$/;
+
+// Ties an objectKey back to the hash buildObjectKey encoded into it, so the
+// confirm step (confirmUploadAction) can reject an objectKey/fileHash pair
+// that wasn't actually the one requestUploadUrlAction issued — otherwise a
+// caller could request a presigned URL for one file's hash (passing the
+// duplicate-content check) and then confirm with a different, unrelated
+// fileHash, decoupling the recorded file_hash from the object it names.
+// Doesn't confirm the object was actually PUT to R2 (no credentials to test
+// a HeadObject call against in this environment) — only that the key and
+// hash are internally consistent with what was issued.
+export function parseObjectKey(objectKey: string): { track: "sit-conf" | "general"; fileHash: string } | null {
+  const match = OBJECT_KEY_PATTERN.exec(objectKey);
+  if (!match) return null;
+  return { track: match[1] as "sit-conf" | "general", fileHash: match[2] };
+}

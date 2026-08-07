@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, type Path } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,7 +175,7 @@ export default function SubmissionForm({
 
     if (!parsed.success) {
       parsed.error.issues.forEach((issue) => {
-        setError(issue.path.join(".") as any, { type: "manual", message: issue.message });
+        setError(issue.path.join(".") as Path<DraftFormValues>, { type: "manual", message: issue.message });
       });
       setFormError("Please fix the highlighted fields before submitting.");
       return;

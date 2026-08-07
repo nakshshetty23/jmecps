@@ -4,8 +4,17 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
-import { draftSchema } from "@/lib/validations/submission";
+import { makeDraftSchema } from "@/lib/validations/submission";
+import { getJournalSettings, getEnabledCategoryKeys } from "@/lib/journal-settings";
 import { sendDraftCreatedEmail } from "@/lib/email";
+
+// A manuscript stays editable through a revision cycle, not just before its
+// first submission: REVISION_REQUIRED is the editor sending it back to the
+// author to fix, and the author needs to actually be able to save those
+// fixes (and the resubmit flow below re-saves before transitioning to
+// RESUBMITTED). Restricting this to DRAFT alone made "revise and resubmit"
+// impossible — every edit and re-upload was silently rejected.
+const AUTHOR_EDITABLE_STATUSES = ["DRAFT", "REVISION_REQUIRED"] as const;
 
 export type ActionResult<T = unknown> = {
   success: boolean;
@@ -35,12 +44,17 @@ export async function saveDraftAction(
     return { success: false, errors: { _form: ["You must be signed in as a researcher to save a draft."] } };
   }
 
-  const parsed = draftSchema.safeParse(input);
+  const [settings, enabledCategories] = await Promise.all([getJournalSettings(), getEnabledCategoryKeys()]);
+  const parsed = makeDraftSchema(settings.abstract_word_limit).safeParse(input);
   if (!parsed.success) {
     return { success: false, errors: parsed.error.flatten().fieldErrors as Record<string, string[]> };
   }
 
   const data = parsed.data;
+  if (data.category && !enabledCategories.has(data.category)) {
+    return { success: false, errors: { category: ["This category is no longer accepting submissions."] } };
+  }
+
   const correspondingAuthor = data.authors.find((a) => a.isCorresponding);
   const institution =
     correspondingAuthor?.institution ||
@@ -52,7 +66,7 @@ export async function saveDraftAction(
     if (!existing || existing.primary_author_id !== user.id) {
       return { success: false, errors: { _form: ["Manuscript not found."] } };
     }
-    if (existing.status !== "DRAFT") {
+    if (!AUTHOR_EDITABLE_STATUSES.includes(existing.status as (typeof AUTHOR_EDITABLE_STATUSES)[number])) {
       return {
         success: false,
         errors: { _form: ["This manuscript has already been submitted and can no longer be edited."] },

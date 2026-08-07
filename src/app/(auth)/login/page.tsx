@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { createClient } from "@/lib/supabase/client";
 import { getDashboardPath, getSafeCallbackUrl, type Role } from "@/lib/auth/rbac";
 import { recordLoginAction } from "@/lib/actions/auth-events";
+import { loginSchema } from "@/lib/validations/auth";
 
 function LoginForm() {
   const router = useRouter();
@@ -22,13 +23,20 @@ function LoginForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    const parsed = loginSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0].message);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const supabase = createClient();
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: parsed.data.email,
+        password: parsed.data.password,
       });
 
       if (signInError) {
@@ -38,7 +46,11 @@ function LoginForm() {
 
       void recordLoginAction();
 
-      const role = data.user?.user_metadata?.role as Role | undefined;
+      // app_metadata, not user_metadata — the latter is client-writable and
+      // no longer trusted for role (see getUserRole in lib/auth/rbac.ts).
+      // This is just picking where to redirect; the proxy re-derives the
+      // real role server-side from the same app_metadata field regardless.
+      const role = data.user?.app_metadata?.role as Role | undefined;
       const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));
       router.push(callbackUrl || getDashboardPath(role ?? "RESEARCHER"));
       router.refresh();

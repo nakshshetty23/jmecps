@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { SUBJECT_CATEGORY_LABELS, type SUBJECT_CATEGORIES } from "@/lib/validations/submission";
 import { getManuscriptCode } from "@/lib/manuscript-code";
 import type { Manuscript, ManuscriptStatus, Payment } from "@/generated/prisma/client";
@@ -104,7 +104,7 @@ function ApcBadge({ manuscript, payment }: { manuscript: Manuscript; payment: Pa
           </Button>
         </div>
         {showNotice && (
-          <p className="text-xs text-muted-foreground">Payment processing isn't configured for this deployment yet.</p>
+          <p className="text-xs text-muted-foreground">Payment processing isn&apos;t configured for this deployment yet.</p>
         )}
       </div>
     );

@@ -43,7 +43,7 @@ export default async function JournalSettingsPage() {
         <CardHeader>
           <CardTitle className="text-lg">Submission Categories</CardTitle>
           <CardDescription>
-            Disabling a category removes it from new submissions' dropdown — manuscripts already filed under it
+            Disabling a category removes it from new submissions&apos; dropdown — manuscripts already filed under it
             are unaffected. Adding a genuinely new category (not just toggling these 7) would need a matching
             label added in code, so isn&apos;t supported from here.
           </CardDescription>

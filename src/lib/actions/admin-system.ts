@@ -189,12 +189,18 @@ export async function updateUserRoleAction({
     }),
     // public.users.role above is a denormalized display copy — every actual
     // RBAC check (getUserRole in src/lib/auth/rbac.ts) reads the role out of
-    // the Supabase Auth session's user_metadata instead. There's no service
+    // the Supabase Auth session's app_metadata instead. There's no service
     // role key configured to go through Supabase's Admin API
     // (auth.admin.updateUserById), so this updates auth.users directly over
     // the same Postgres connection — the only path available without that
     // key. $executeRaw parametrizes both values; no injection surface.
-    db.$executeRaw`update auth.users set raw_user_meta_data = raw_user_meta_data || jsonb_build_object('role', ${newRole}::text) where id = ${userId}::uuid`,
+    // Deliberately app_metadata, not user_metadata: user_metadata is
+    // writable by the account owner themselves via supabase-js's
+    // updateUser() client call, which would let any RESEARCHER grant
+    // themselves SUPER_ADMIN. app_metadata has no client-reachable write
+    // path — this $executeRaw (super-admin-gated, server-only) is the only
+    // way to change it short of the Admin API. See getUserRole's comment.
+    db.$executeRaw`update auth.users set raw_app_meta_data = coalesce(raw_app_meta_data, '{}'::jsonb) || jsonb_build_object('role', ${newRole}::text) where id = ${userId}::uuid`,
   ]);
 
   await logAuditEvent({

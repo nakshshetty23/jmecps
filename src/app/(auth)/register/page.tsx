@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { recordRegisterAction } from "@/lib/actions/auth-events";
+import { registerSchema } from "@/lib/validations/auth";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -22,18 +23,24 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    const parsed = registerSchema.safeParse({ fullName, email, institutionalAffiliation, password });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0].message);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       const supabase = createClient();
       const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
+        email: parsed.data.email,
+        password: parsed.data.password,
         options: {
           data: {
-            full_name: fullName,
-            institutional_affiliation: institutionalAffiliation,
-            role: "RESEARCHER",
+            full_name: parsed.data.fullName,
+            institutional_affiliation: parsed.data.institutionalAffiliation,
           },
         },
       });

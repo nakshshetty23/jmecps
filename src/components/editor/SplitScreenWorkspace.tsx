@@ -75,7 +75,6 @@ export default function SplitScreenWorkspace({
     return () => {
       if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [internalNotes, authorNotes, rubricScores, isLocked, manuscriptId]);
 
   useEffect(() => {
@@ -136,7 +135,7 @@ export default function SplitScreenWorkspace({
 
       {isLocked && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-400">
-          {lockHolderName ?? "Another editor"} is currently reviewing this paper. You're in read-only preview mode.
+          {lockHolderName ?? "Another editor"} is currently reviewing this paper. You&apos;re in read-only preview mode.
         </div>
       )}
 
@@ -285,7 +284,7 @@ export default function SplitScreenWorkspace({
 
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="revision-deadline" className="text-xs text-muted-foreground">
-                  Revision deadline (optional, used only with "Request Revision")
+                  Revision deadline (optional, used only with &quot;Request Revision&quot;)
                 </label>
                 <input
                   id="revision-deadline"

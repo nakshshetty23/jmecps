@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
-import { buildObjectKey, buildStoredFileUrl, getPresignedUploadUrl } from "@/lib/storage/r2";
+import { buildObjectKey, buildStoredFileUrl, getPresignedUploadUrl, parseObjectKey } from "@/lib/storage/r2";
 import { uploadRequestSchema, uploadConfirmSchema } from "@/lib/validations/upload";
 import { logAuditEvent } from "@/lib/audit/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -12,6 +12,11 @@ import { checkRateLimit } from "@/lib/rate-limit";
 const ALLOWED_EXTENSIONS = ["pdf", "doc", "docx"];
 const UPLOAD_URL_RATE_LIMIT = 10;
 const UPLOAD_URL_RATE_WINDOW_MS = 60 * 1000;
+
+// Matches AUTHOR_EDITABLE_STATUSES in src/lib/actions/submission.ts — a
+// replacement file upload during a revision cycle is exactly as legitimate
+// as one during the initial draft.
+const AUTHOR_UPLOAD_STATUSES = ["DRAFT", "REVISION_REQUIRED"] as const;
 
 export type UploadActionResult<T = unknown> = {
   success: boolean;
@@ -36,7 +41,7 @@ async function getOwnedDraftManuscript(manuscriptId: string) {
   if (!manuscript || manuscript.primary_author_id !== user.id) {
     return { error: "Manuscript not found." } as const;
   }
-  if (manuscript.status !== "DRAFT") {
+  if (!AUTHOR_UPLOAD_STATUSES.includes(manuscript.status as (typeof AUTHOR_UPLOAD_STATUSES)[number])) {
     return { error: "This manuscript has already been submitted and its file can no longer be changed." } as const;
   }
 
@@ -108,6 +113,16 @@ export async function confirmUploadAction(
 
   const owned = await getOwnedDraftManuscript(manuscriptId);
   if ("error" in owned) return { success: false, error: owned.error };
+
+  // objectKey and fileHash must be internally consistent with what
+  // requestUploadUrlAction actually issued (see parseObjectKey) — otherwise
+  // a caller could confirm a hash that was never checked for duplicates
+  // against the object it's now being bound to.
+  const parsedKey = parseObjectKey(objectKey);
+  const expectedTrack = isSITConference ? "sit-conf" : "general";
+  if (!parsedKey || parsedKey.fileHash !== fileHash || parsedKey.track !== expectedTrack) {
+    return { success: false, error: "Upload verification failed — please re-upload the file." };
+  }
 
   const fileUrl = buildStoredFileUrl(objectKey);
 

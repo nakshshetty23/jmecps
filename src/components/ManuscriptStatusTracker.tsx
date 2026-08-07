@@ -66,7 +66,7 @@ export default function ManuscriptStatusTracker({ manuscriptId, status, role, is
   const [pendingTarget, setPendingTarget] = useState<ManuscriptStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const nextStates = getNextAllowedStates(status, role).filter((target) => {
+  const nextStates = getNextAllowedStates(status, role).filter(() => {
     // Only the owning author gets author-scoped buttons rendered at all —
     // a co-author viewing someone else's manuscript shouldn't see actions
     // that would just fail server-side with an authorization error.
