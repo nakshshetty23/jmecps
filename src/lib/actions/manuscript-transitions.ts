@@ -128,13 +128,20 @@ export async function transitionManuscriptAction({
     metadata: { from: existing.status, to: targetStatus },
   });
 
-  // Search indexing hook — see src/lib/search/manuscripts.ts for why this is
-  // currently a no-op (the search_vector column indexes itself).
+  // Cache invalidation for the public search/article-detail read layer —
+  // see src/lib/search/manuscripts.ts for why this is scoped to PUBLISHED
+  // only (the search_vector column that backs matching/ranking is always
+  // live; this just clears the cached read results).
   if (targetStatus === "PUBLISHED") {
     await onManuscriptPublished(manuscriptId);
   }
 
   revalidatePath(`/submissions/${manuscriptId}`);
   revalidatePath("/dashboard");
+  // Covers every transition this action handles that affects what the
+  // editorial queue should show: author withdraws (drops out), editor
+  // approves/rejects/publishes (drops out), or moves to under-review
+  // (status label changes in place).
+  revalidatePath("/review");
   return { success: true, data: { id: manuscriptId, status: targetStatus } };
 }

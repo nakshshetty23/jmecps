@@ -5,6 +5,15 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { getPublishedManuscriptDetail } from "@/lib/search/manuscripts";
 import { SUBJECT_CATEGORY_LABELS, type SUBJECT_CATEGORIES } from "@/lib/validations/submission";
 
+// Page-level ISR to match the data layer's caching (getPublishedManuscriptDetail
+// in src/lib/search/manuscripts.ts) — a 1-hour safety-net revalidation, with
+// on-demand invalidation via updateTag(`article-${id}`) whenever a manuscript's
+// PUBLISHED status changes (see onManuscriptPublished in that same module).
+// No generateStaticParams: articles are created continuously post-launch, so
+// there's no fixed id list to pre-render at build time — dynamicParams (the
+// default) lets Next.js render+cache each one on its first request instead.
+export const revalidate = 3600;
+
 // Google Scholar / Highwire Press citation meta tags — no real DOI exists in
 // this build (no registrar integration), so citation_doi is intentionally
 // omitted rather than fabricated. Everything else here is real data.

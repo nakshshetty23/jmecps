@@ -1,7 +1,15 @@
 import "server-only";
+import { unstable_cache, updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { getManuscriptCode } from "@/lib/manuscript-code";
+
+// unstable_cache serializes return values (Dates become ISO strings on a
+// cache hit, since the cache store round-trips through JSON), so both
+// cached wrapper functions below convert Date fields to strings going in
+// and back to Date objects coming out — otherwise callers would see
+// inconsistent types depending on whether the read was a hit or a miss.
+type Serialized<T> = Omit<T, "publishedAt"> & { publishedAt: string };
 
 // Full-text search over published manuscripts.
 //
@@ -147,22 +155,7 @@ async function runSearch(
   return { rows, totalCount, effectivePage };
 }
 
-// Two-tier search: exact-lexeme tsvector search first (stemming, stop words,
-// relevance-ranked via ts_rank — good for real words). If that finds
-// nothing, falls back to pg_trgm similarity across title/institution/authors
-// so a typo ("manufactring") or a partial name still surfaces something,
-// rather than an empty result for what's likely a near-miss. An empty query
-// is "browse all published papers" rather than "no results" — the public
-// search page defaults to this.
-export async function searchPublishedManuscripts({
-  query,
-  category,
-  track,
-  year,
-  sort = "relevance",
-  page = 1,
-  limit = 10,
-}: {
+interface SearchParams {
   query: string;
   category?: string;
   track?: "SIT_CONF" | "STANDARD";
@@ -170,7 +163,24 @@ export async function searchPublishedManuscripts({
   sort?: SortMode;
   page?: number;
   limit?: number;
-}): Promise<SearchPage> {
+}
+
+// Two-tier search: exact-lexeme tsvector search first (stemming, stop words,
+// relevance-ranked via ts_rank — good for real words). If that finds
+// nothing, falls back to pg_trgm similarity across title/institution/authors
+// so a typo ("manufactring") or a partial name still surfaces something,
+// rather than an empty result for what's likely a near-miss. An empty query
+// is "browse all published papers" rather than "no results" — the public
+// search page defaults to this.
+async function searchPublishedManuscriptsUncached({
+  query,
+  category,
+  track,
+  year,
+  sort = "relevance",
+  page = 1,
+  limit = 10,
+}: SearchParams): Promise<SearchPage> {
   const trimmed = query.trim();
   const safePage = Math.max(1, Math.floor(page) || 1);
   const filters: Prisma.Sql[] = [];
@@ -210,6 +220,25 @@ export async function searchPublishedManuscripts({
   return toSearchPage(trigramResult.rows, trigramResult.totalCount, trigramResult.effectivePage, limit);
 }
 
+// Cached per distinct parameter combination (the params, JSON-stringified,
+// are part of the cache key) — a 60s safety-net revalidation plus on-demand
+// invalidation via revalidateTag("search-results") whenever a manuscript's
+// PUBLISHED status changes (see onManuscriptPublished below), so a newly
+// published paper doesn't wait out the window to appear.
+export async function searchPublishedManuscripts(params: SearchParams): Promise<SearchPage> {
+  const cacheKey = JSON.stringify(params);
+  const cached = await unstable_cache(
+    async () => {
+      const result = await searchPublishedManuscriptsUncached(params);
+      return { ...result, rows: result.rows.map((r) => ({ ...r, publishedAt: r.publishedAt.toISOString() })) };
+    },
+    ["search-published-manuscripts", cacheKey],
+    { tags: ["search-results"], revalidate: 60 }
+  )();
+
+  return { ...cached, rows: cached.rows.map((r) => ({ ...r, publishedAt: new Date(r.publishedAt) })) };
+}
+
 export interface PublishedManuscriptDetail extends SearchResultRow {
   authors: { fullName: string; institution: string; orcid: string }[];
   references: string[];
@@ -218,7 +247,7 @@ export interface PublishedManuscriptDetail extends SearchResultRow {
 // Public, read-only lookup for the article detail page — deliberately scoped
 // to status = PUBLISHED only, so an unpublished manuscript's id can't be
 // guessed/enumerated to view draft content that hasn't cleared review.
-export async function getPublishedManuscriptDetail(id: string): Promise<PublishedManuscriptDetail | null> {
+async function getPublishedManuscriptDetailUncached(id: string): Promise<PublishedManuscriptDetail | null> {
   const manuscript = await db.manuscript.findFirst({ where: { id, status: "PUBLISHED" } });
   if (!manuscript) return null;
 
@@ -247,13 +276,37 @@ export async function getPublishedManuscriptDetail(id: string): Promise<Publishe
   };
 }
 
-// Integration seam for the PUBLISHED transition (called from
-// src/lib/actions/manuscript-transitions.ts). A no-op today — the generated
-// column already makes the manuscript searchable the instant its status
-// commits — kept as the place a real external search engine call would go
-// if one is ever added.
+// Longer-lived cache (published articles don't change post-publish in this
+// app — there's no edit-after-publish flow) tagged both globally and
+// per-article, so a specific article can be invalidated without flushing
+// every other cached article too.
+export async function getPublishedManuscriptDetail(id: string): Promise<PublishedManuscriptDetail | null> {
+  const cached = await unstable_cache(
+    async () => {
+      const result = await getPublishedManuscriptDetailUncached(id);
+      if (!result) return null;
+      return { ...result, publishedAt: result.publishedAt.toISOString() } satisfies Serialized<PublishedManuscriptDetail>;
+    },
+    ["published-manuscript-detail", id],
+    { tags: ["search-results", `article-${id}`], revalidate: 3600 }
+  )();
+
+  if (!cached) return null;
+  return { ...cached, publishedAt: new Date(cached.publishedAt) };
+}
+
+// Called from every manuscript transition (src/lib/actions/manuscript-
+// transitions.ts, finalize-submission.ts, editorial.ts) whenever a
+// manuscript enters or leaves PUBLISHED — the generated search_vector
+// column already makes it searchable/unsearchable in the database instantly
+// (see the module doc comment above), but the cached read layer above still
+// needs telling. Broad ("search-results") rather than surgical, since
+// invalidating only the specific query combinations a manuscript would now
+// match/not-match isn't practical — safe, just slightly more invalidation
+// than the theoretical minimum.
 export async function onManuscriptPublished(manuscriptId: string): Promise<void> {
-  void manuscriptId;
+  updateTag("search-results");
+  updateTag(`article-${manuscriptId}`);
 }
 
 const SEARCH_INDEX_NAMES = [

@@ -143,5 +143,7 @@ export async function finalizeSubmissionAction({
 
   revalidatePath(`/submissions/${manuscriptId}`);
   revalidatePath("/dashboard");
+  // The manuscript now enters the editorial queue for the first time.
+  revalidatePath("/review");
   return { success: true, data: { id: manuscriptId } };
 }
