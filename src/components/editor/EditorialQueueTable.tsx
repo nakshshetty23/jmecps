@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/sheet";
 import {
   assignEditorAction,
-  sendAuthorReminderAction,
   getManuscriptAuditTrailAction,
   type TriageQueueRow,
   type AuditTrailEntry,
@@ -42,8 +41,6 @@ interface TriageRowProps {
 function TriageRow({ row, availableEditors, canOverrideState }: TriageRowProps) {
   const router = useRouter();
   const [assigning, setAssigning] = useState(false);
-  const [sendingReminder, setSendingReminder] = useState(false);
-  const [reminderSent, setReminderSent] = useState(false);
   const [overriding, setOverriding] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
   const [auditEntries, setAuditEntries] = useState<AuditTrailEntry[] | null>(null);
@@ -56,16 +53,6 @@ function TriageRow({ row, availableEditors, canOverrideState }: TriageRowProps) 
       router.refresh();
     } finally {
       setAssigning(false);
-    }
-  }
-
-  async function handleReminder() {
-    setSendingReminder(true);
-    try {
-      const result = await sendAuthorReminderAction({ manuscriptId: row.id });
-      if (result.success) setReminderSent(true);
-    } finally {
-      setSendingReminder(false);
     }
   }
 
@@ -173,9 +160,6 @@ function TriageRow({ row, availableEditors, canOverrideState }: TriageRowProps) 
         <div className="flex flex-col gap-1.5">
           <Button size="sm" variant="outline" render={<Link href={`/review/${row.id}`} />} nativeButton={false}>
             Open
-          </Button>
-          <Button size="sm" variant="outline" disabled={sendingReminder || reminderSent} onClick={handleReminder}>
-            {reminderSent ? "Reminder Sent" : sendingReminder ? "Sending…" : "Send Reminder"}
           </Button>
           <Sheet open={auditOpen} onOpenChange={setAuditOpen}>
             <Button size="sm" variant="outline" onClick={openAuditTrail}>

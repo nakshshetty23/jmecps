@@ -4,8 +4,6 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
 import { makeSubmitSchema, SUBJECT_CATEGORIES, type AuthorInput } from "@/lib/validations/submission";
-import { sendSubmissionConfirmationEmail } from "@/lib/email";
-import { getManuscriptCode } from "@/lib/manuscript-code";
 import { getJournalSettings, getEnabledCategoryKeys } from "@/lib/journal-settings";
 import {
   assertTransition,
@@ -142,14 +140,6 @@ export async function finalizeSubmissionAction({
     resourceId: manuscriptId,
     metadata: { from: "DRAFT", to: "SUBMITTED" },
   });
-
-  const updated = await db.manuscript.findUniqueOrThrow({ where: { id: manuscriptId } });
-
-  await sendSubmissionConfirmationEmail(
-    user.email ?? "",
-    updated.title,
-    getManuscriptCode(updated.id, updated.created_at)
-  );
 
   revalidatePath(`/submissions/${manuscriptId}`);
   revalidatePath("/dashboard");

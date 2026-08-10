@@ -15,7 +15,7 @@ const ONE_MINUTE_MS = 60 * 1000;
 // Note on what this actually protects: /login and /register submit via
 // client-side JS calling Supabase directly (never touching this proxy) —
 // so this limits how often an IP can load *our page*, not the underlying
-// signInWithPassword/signUp calls themselves (those hit Supabase's own API
+// signInWithOtp/verifyOtp calls themselves (those hit Supabase's own API
 // and are subject to Supabase's own rate limiting — the same
 // over_email_send_rate_limit this project has already hit in testing).
 // Real protection against direct API abuse, not just our page.

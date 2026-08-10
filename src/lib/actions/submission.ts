@@ -6,7 +6,6 @@ import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
 import { makeDraftSchema } from "@/lib/validations/submission";
 import { getJournalSettings, getEnabledCategoryKeys } from "@/lib/journal-settings";
-import { sendDraftCreatedEmail } from "@/lib/email";
 
 // A manuscript stays editable through a revision cycle, not just before its
 // first submission: REVISION_REQUIRED is the editor sending it back to the
@@ -103,8 +102,6 @@ export async function saveDraftAction(
       status: "DRAFT",
     },
   });
-
-  await sendDraftCreatedEmail(user.email ?? "", created.title);
 
   revalidatePath("/dashboard");
   return { success: true, data: { id: created.id } };

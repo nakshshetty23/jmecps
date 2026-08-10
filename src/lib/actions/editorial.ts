@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
-import { sendEditorialDecisionEmail, sendReminderEmail } from "@/lib/email";
 import { getManuscriptCode } from "@/lib/manuscript-code";
 import {
   assertTransition,
@@ -271,32 +270,6 @@ export async function getManuscriptAuditTrailAction(manuscriptId: string): Promi
   }));
 }
 
-export async function sendAuthorReminderAction({ manuscriptId }: { manuscriptId: string }): Promise<ActionResult> {
-  const editor = await getAuthorizedEditor();
-  if (!editor) {
-    return { success: false, errors: { _form: ["You must be signed in as an editor."] } };
-  }
-
-  const manuscript = await db.manuscript.findUnique({ where: { id: manuscriptId } });
-  if (!manuscript) {
-    return { success: false, errors: { _form: ["Manuscript not found."] } };
-  }
-
-  const primaryAuthor = await db.user.findUnique({ where: { id: manuscript.primary_author_id } });
-  if (!primaryAuthor) {
-    return { success: false, errors: { _form: ["Primary author not found."] } };
-  }
-
-  await sendReminderEmail(
-    primaryAuthor.email,
-    manuscript.title,
-    getManuscriptCode(manuscript.id, manuscript.created_at),
-    manuscript.status.replace(/_/g, " ").toLowerCase()
-  );
-
-  return { success: true };
-}
-
 export async function getManuscriptForReview(manuscriptId: string): Promise<ManuscriptForReview | null> {
   const editor = await getAuthorizedEditor();
   if (!editor) return null;
@@ -521,18 +494,6 @@ export async function submitEditorialDecisionAction({
         revision_deadline: deadline,
       },
     });
-  }
-
-  const primaryAuthor = await db.user.findUnique({ where: { id: existing.primary_author_id } });
-  if (primaryAuthor) {
-    await sendEditorialDecisionEmail(
-      primaryAuthor.email,
-      existing.title,
-      getManuscriptCode(existing.id, existing.created_at),
-      decision,
-      reviewNotes,
-      deadline
-    );
   }
 
   revalidatePath(`/submissions/${manuscriptId}`);
