@@ -44,3 +44,4 @@ next-env.d.ts
 
 # database backups (scripts/backup-db.sh) — dumps contain real data, never commit
 /backups/
+.prisma/
