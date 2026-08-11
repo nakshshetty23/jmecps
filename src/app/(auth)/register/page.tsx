@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,6 @@ import OtpVerifyStep, { type OtpActionResult } from "@/components/auth/OtpVerify
 type Step = "info" | "otp";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const [step, setStep] = useState<Step>("info");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -94,8 +92,13 @@ export default function RegisterPage() {
     void recordRegisterAction();
 
     const role = data.user?.app_metadata?.role as Role | undefined;
-    router.push(getDashboardPath(role ?? "RESEARCHER"));
-    router.refresh();
+    // Hard navigation, not router.push()+refresh(): calling refresh()
+    // immediately after push() to a different route races with the
+    // pending client-side transition and can drop the navigation entirely
+    // while still re-rendering the shared layout (the header ends up
+    // showing an authenticated session on a page that never actually
+    // navigated). A full document request has no such race.
+    window.location.href = getDashboardPath(role ?? "RESEARCHER");
     return { success: true };
   }
 

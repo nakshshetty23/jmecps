@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,6 @@ import OtpVerifyStep, { type OtpActionResult } from "@/components/auth/OtpVerify
 type Step = "credentials" | "otp";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [step, setStep] = useState<Step>("credentials");
   const [email, setEmail] = useState("");
@@ -91,8 +90,13 @@ function LoginForm() {
     // real role server-side from the same app_metadata field regardless.
     const role = data.user?.app_metadata?.role as Role | undefined;
     const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));
-    router.push(callbackUrl || getDashboardPath(role ?? "RESEARCHER"));
-    router.refresh();
+    // Hard navigation, not router.push()+refresh(): calling refresh()
+    // immediately after push() to a different route races with the
+    // pending client-side transition and can drop the navigation entirely
+    // while still re-rendering the shared layout (the header ends up
+    // showing an authenticated session on a page that never actually
+    // navigated). A full document request has no such race.
+    window.location.href = callbackUrl || getDashboardPath(role ?? "RESEARCHER");
     return { success: true };
   }
 
