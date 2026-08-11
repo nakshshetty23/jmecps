@@ -8,7 +8,11 @@ export const ROLE_HIERARCHY: Record<Exclude<Role, "VISITOR">, number> = {
   SUPER_ADMIN: 3,
 };
 
-export type RouteCategory = "public" | "auth" | "researcher" | "admin" | "super-admin";
+// "authenticated" = Phase 2's guest-access restriction: any route not
+// explicitly public and not one of the role-scoped categories below still
+// requires *some* signed-in session, but doesn't narrow by role the way
+// researcher/admin/super-admin do.
+export type RouteCategory = "public" | "auth" | "authenticated" | "researcher" | "admin" | "super-admin";
 type GatedCategory = Exclude<RouteCategory, "public" | "auth">;
 
 const ROUTE_RULES: { prefix: string; category: RouteCategory }[] = [
@@ -20,11 +24,20 @@ const ROUTE_RULES: { prefix: string; category: RouteCategory }[] = [
   { prefix: "/control-center", category: "super-admin" },
 ];
 
+// The only routes reachable with no session at all (Phase 2): the
+// homepage, plus system/redirect-target pages that must never themselves
+// require auth — verify-notice is where an unverified signed-in user
+// already gets sent, and 403 is where a wrong-role user already gets sent;
+// gating either would create a redirect loop or a confusing detour.
+// Exact-match only ("/" as a prefix would swallow every route).
+const PUBLIC_EXACT_PATHS = new Set<string>(["/", "/verify-notice", "/403"]);
+
 // Domain-bounded, not a `role >= required` hierarchy: RESEARCHER and ADMIN
 // are mutually exclusive over each other's routes. Only SUPER_ADMIN has
 // universal access. (A naive numeric comparison would wrongly let ADMIN
 // into researcher routes, since ADMIN > RESEARCHER in ROLE_HIERARCHY.)
 const ALLOWED_ROLES: Record<GatedCategory, Role[]> = {
+  authenticated: ["RESEARCHER", "ADMIN", "SUPER_ADMIN"],
   researcher: ["RESEARCHER", "SUPER_ADMIN"],
   admin: ["ADMIN", "SUPER_ADMIN"],
   "super-admin": ["SUPER_ADMIN"],
@@ -37,14 +50,18 @@ const DASHBOARD_PATH: Record<Exclude<Role, "VISITOR">, string> = {
 };
 
 export function classifyRoute(pathname: string): RouteCategory {
+  if (PUBLIC_EXACT_PATHS.has(pathname)) return "public";
   const rule = ROUTE_RULES.find(
     (r) => pathname === r.prefix || pathname.startsWith(`${r.prefix}/`)
   );
-  return rule?.category ?? "public";
+  if (rule) return rule.category;
+  // Default-protected (Phase 2): anything not explicitly listed above
+  // requires a signed-in session, regardless of role.
+  return "authenticated";
 }
 
 export function isGatedCategory(category: RouteCategory): category is GatedCategory {
-  return category === "researcher" || category === "admin" || category === "super-admin";
+  return category === "authenticated" || category === "researcher" || category === "admin" || category === "super-admin";
 }
 
 export function hasPermission(role: Role, category: GatedCategory): boolean {
