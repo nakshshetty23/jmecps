@@ -6,7 +6,18 @@ import { getSupabaseEnv } from "./env";
 export async function updateSession(
   request: NextRequest
 ): Promise<{ response: NextResponse; user: User | null }> {
-  let supabaseResponse = NextResponse.next({ request });
+  // Strip any client-supplied x-user-* headers before they can reach
+  // downstream Server Components. proxy.ts re-sets trusted values on top
+  // of this for routes it authorizes (src/proxy.ts), but "public"/"auth"
+  // routes return this function's response as-is with no re-set step — so
+  // without this, a request could forge its own x-user-role header and
+  // have it forwarded unchanged on those paths.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.delete("x-user-id");
+  requestHeaders.delete("x-user-role");
+  requestHeaders.delete("x-user-email");
+
+  let supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
   const { url, key } = getSupabaseEnv();
 
   const supabase = createServerClient(url, key, {
@@ -16,7 +27,7 @@ export async function updateSession(
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        supabaseResponse = NextResponse.next({ request });
+        supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
         cookiesToSet.forEach(({ name, value, options }) =>
           supabaseResponse.cookies.set(name, value, options)
         );
