@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { createClient } from "@/lib/supabase/client";
 import { getDashboardPath, type Role } from "@/lib/auth/rbac";
 import { recordRegisterAction } from "@/lib/actions/auth-events";
-import { registerInfoSchema } from "@/lib/validations/auth";
+import { registerSchema } from "@/lib/validations/auth";
 import OtpVerifyStep, { type OtpActionResult } from "@/components/auth/OtpVerifyStep";
 
 type Step = "info" | "otp";
@@ -21,42 +21,22 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [institutionalAffiliation, setInstitutionalAffiliation] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Takes explicit values rather than reading component state directly —
-  // handleSubmit calls this with freshly-parsed data in the same tick as
-  // its setState calls, before those updates have actually landed, so
-  // reading `email`/`fullName`/etc. here instead would race against
-  // React's batching. The resend button (which does read current state)
-  // is only reachable after the "otp" step has rendered, well past that
-  // window, so it's safe there.
-  async function sendOtp(values: { email: string; fullName: string; institutionalAffiliation: string }): Promise<OtpActionResult> {
-    const supabase = createClient();
-    // shouldCreateUser: true — this is the account-creation call. If the
-    // email already has an account, Supabase sends a login code instead of
-    // erroring (deliberate anti-enumeration behavior on Supabase's part —
-    // signup can't be used to probe which emails are already registered).
-    // Either way the next step is identical: enter the code that arrived.
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: values.email,
-      options: {
-        shouldCreateUser: true,
-        data: {
-          full_name: values.fullName,
-          institutional_affiliation: values.institutionalAffiliation,
-        },
-      },
-    });
-    if (otpError) return { success: false, error: otpError.message };
-    return { success: true };
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    const parsed = registerInfoSchema.safeParse({ fullName, email, institutionalAffiliation });
+    const parsed = registerSchema.safeParse({
+      fullName,
+      email,
+      institutionalAffiliation,
+      password,
+      confirmPassword,
+    });
     if (!parsed.success) {
       setError(parsed.error.issues[0].message);
       return;
@@ -67,9 +47,22 @@ export default function RegisterPage() {
 
     setIsSubmitting(true);
     try {
-      const result = await sendOtp(parsed.data);
-      if (!result.success) {
-        setError(result.error ?? "Could not send the verification code. Please try again.");
+      const supabase = createClient();
+      // With "Confirm email" enabled on this project, signUp() creates the
+      // account but withholds a session (data.session is null) until the
+      // OTP below is verified — the account exists but isn't usable yet.
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: parsed.data.email,
+        password: parsed.data.password,
+        options: {
+          data: {
+            full_name: parsed.data.fullName,
+            institutional_affiliation: parsed.data.institutionalAffiliation,
+          },
+        },
+      });
+      if (signUpError) {
+        setError(signUpError.message);
         return;
       }
       setStep("otp");
@@ -80,12 +73,21 @@ export default function RegisterPage() {
     }
   }
 
+  async function handleResend(): Promise<OtpActionResult> {
+    const supabase = createClient();
+    // Dedicated resend endpoint for signup confirmations — distinct from
+    // signInWithOtp, which is for the (passwordless) OTP-login flow instead.
+    const { error: resendError } = await supabase.auth.resend({ type: "signup", email });
+    if (resendError) return { success: false, error: resendError.message };
+    return { success: true };
+  }
+
   async function handleVerify(token: string): Promise<OtpActionResult> {
     const supabase = createClient();
     const { data, error: verifyError } = await supabase.auth.verifyOtp({
       email,
       token,
-      type: "email",
+      type: "signup",
     });
     if (verifyError) return { success: false, error: verifyError.message };
 
@@ -152,8 +154,36 @@ export default function RegisterPage() {
                 />
               </div>
 
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="confirm_password">Confirm Password</Label>
+                <Input
+                  id="confirm_password"
+                  name="confirm_password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+
               <Button type="submit" disabled={isSubmitting} className="mt-2 bg-primary text-primary-foreground hover:bg-primary/80">
-                {isSubmitting ? "Sending code…" : "Create Account"}
+                {isSubmitting ? "Creating account…" : "Create Account"}
               </Button>
 
               <p className="text-center text-sm text-muted-foreground">
@@ -167,7 +197,7 @@ export default function RegisterPage() {
             <OtpVerifyStep
               email={email}
               onVerify={handleVerify}
-              onResend={() => sendOtp({ email, fullName, institutionalAffiliation })}
+              onResend={handleResend}
               onChangeEmail={() => {
                 setStep("info");
                 setError(null);
