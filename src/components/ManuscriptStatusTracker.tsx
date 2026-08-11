@@ -66,7 +66,15 @@ export default function ManuscriptStatusTracker({ manuscriptId, status, role, is
   const [pendingTarget, setPendingTarget] = useState<ManuscriptStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const nextStates = getNextAllowedStates(status, role).filter(() => {
+  // PAYMENT_PENDING/PAYMENT_COMPLETED/PUBLISHED are deliberately excluded
+  // here — those go through the dedicated Super Admin payment/publish
+  // workflow (src/lib/actions/publication.ts, /control-center/manuscripts),
+  // which records an actual Payment row rather than just flipping the
+  // status enum. This generic tracker stays limited to the author actions
+  // (submit/withdraw/resubmit) and the editorial decision transitions.
+  const GENERIC_TRACKER_EXCLUDED_TARGETS: ManuscriptStatus[] = ["PAYMENT_PENDING", "PAYMENT_COMPLETED", "PUBLISHED"];
+  const nextStates = getNextAllowedStates(status, role).filter((target) => {
+    if (GENERIC_TRACKER_EXCLUDED_TARGETS.includes(target)) return false;
     // Only the owning author gets author-scoped buttons rendered at all —
     // a co-author viewing someone else's manuscript shouldn't see actions
     // that would just fail server-side with an authorization error.

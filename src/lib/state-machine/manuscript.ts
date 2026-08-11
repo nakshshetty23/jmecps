@@ -40,7 +40,10 @@ const TRANSITIONS: Record<ManuscriptStatus, ManuscriptStatus[]> = {
   // is the explicitly-enforced source of truth, so it wins: an author cannot
   // withdraw a resubmitted manuscript once it's back under review.
   RESUBMITTED: ["UNDER_REVIEW", "APPROVED", "REJECTED"],
-  APPROVED: ["PAYMENT_PENDING", "PUBLISHED"],
+  // APPROVED -> PUBLISHED is deliberately NOT an edge: publication must
+  // always pass through payment (PAYMENT_PENDING -> PAYMENT_COMPLETED)
+  // first, never directly from an approved-but-unpaid manuscript.
+  APPROVED: ["PAYMENT_PENDING"],
   PAYMENT_PENDING: ["PAYMENT_COMPLETED"],
   PAYMENT_COMPLETED: ["PUBLISHED"],
   PUBLISHED: [],
@@ -72,7 +75,6 @@ const EDITOR_TRANSITIONS = new Set<TransitionKey>([
   key("RESUBMITTED", "APPROVED"),
   key("RESUBMITTED", "REJECTED"),
   key("SUBMITTED", "REJECTED"),
-  key("APPROVED", "PUBLISHED"),
   key("PAYMENT_COMPLETED", "PUBLISHED"),
 ]);
 

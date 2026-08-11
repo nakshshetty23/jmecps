@@ -16,6 +16,7 @@ export default async function SuperAdminLayout({
         <div className="max-w-6xl mx-auto flex gap-1 px-4 sm:px-6 lg:px-8">
           {[
             { label: "Overview", href: "/control-center" },
+            { label: "Manuscripts", href: "/control-center/manuscripts" },
             { label: "Role Management", href: "/control-center/users" },
             { label: "Journal Settings", href: "/control-center/settings" },
           ].map((link) => (
