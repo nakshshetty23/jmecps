@@ -28,7 +28,7 @@ export default async function ReviewWorkspacePage({
       abstract={manuscript.abstract}
       keywords={manuscript.keywords}
       references={Array.isArray(manuscript.references) ? (manuscript.references as string[]) : []}
-      fileUrl={manuscript.file_url}
+      hasFile={manuscript.file_url != null}
       status={manuscript.status}
       primaryAuthor={data.primaryAuthor}
       initialDraft={data.draftReview}

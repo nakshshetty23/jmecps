@@ -1,5 +1,5 @@
 import "server-only";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // Cloudflare R2 is S3-compatible: same SDK, just a custom account-scoped
@@ -38,6 +38,31 @@ export async function getPresignedUploadUrl(objectKey: string, contentType: stri
     ContentType: contentType,
   });
   return getSignedUrl(r2Client, command, { expiresIn: UPLOAD_URL_TTL_SECONDS });
+}
+
+const DOWNLOAD_URL_TTL_SECONDS = 300; // 5 minutes — issued on-demand per authorized request, not held onto
+
+// Callers MUST authorize the request before calling this — it does no
+// authorization itself, it only mints a signed URL for whatever key it's
+// given. See src/lib/actions/download.ts for the authorization check that
+// must run first.
+export async function getPresignedDownloadUrl(objectKey: string): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: objectKey,
+  });
+  return getSignedUrl(r2Client, command, { expiresIn: DOWNLOAD_URL_TTL_SECONDS });
+}
+
+// manuscript.file_url may be a bare object key (current default — no public
+// bucket domain configured, see buildStoredFileUrl above) or a full public
+// URL (if R2_PUBLIC_BASE_URL were ever set). Recover the object key either
+// way — buildObjectKey always starts a key with "uploads/", so that prefix
+// is a reliable anchor regardless of which public base URL was in effect
+// when the row was written.
+export function resolveObjectKeyFromFileUrl(fileUrl: string): string {
+  const idx = fileUrl.indexOf("uploads/");
+  return idx === -1 ? fileUrl : fileUrl.slice(idx);
 }
 
 // R2 buckets are private by default. Only resolves to a fetchable URL when a

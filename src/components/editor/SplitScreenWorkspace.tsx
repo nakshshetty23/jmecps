@@ -10,6 +10,7 @@ import {
   submitEditorialDecisionAction,
   releaseReviewLockAction,
 } from "@/lib/actions/editorial";
+import { getManuscriptDownloadUrlAction } from "@/lib/actions/download";
 import type { ManuscriptStatus, EditorialDecision } from "@/generated/prisma/client";
 
 const RUBRIC_CRITERIA: { key: string; label: string }[] = [
@@ -28,7 +29,7 @@ interface SplitScreenWorkspaceProps {
   abstract: string;
   keywords: string[];
   references: string[];
-  fileUrl: string | null;
+  hasFile: boolean;
   status: ManuscriptStatus;
   primaryAuthor: { fullName: string; email: string } | null;
   initialDraft: { internalNotes: string; authorNotes: string; rubricScores: Record<string, number> } | null;
@@ -43,7 +44,7 @@ export default function SplitScreenWorkspace({
   abstract,
   keywords,
   references,
-  fileUrl,
+  hasFile,
   status,
   primaryAuthor,
   initialDraft,
@@ -60,6 +61,9 @@ export default function SplitScreenWorkspace({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [decisionInFlight, setDecisionInFlight] = useState<EditorialDecision | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fileState, setFileState] = useState<
+    { status: "loading" } | { status: "denied"; error: string } | { status: "ready"; url: string }
+  >({ status: "loading" });
   const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLocked = lockedBySomeoneElse;
   const canDecide = ["SUBMITTED", "UNDER_REVIEW", "RESUBMITTED"].includes(status);
@@ -83,6 +87,23 @@ export default function SplitScreenWorkspace({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manuscriptId]);
+
+  // The raw file reference is never sent to this client — only whether a
+  // file exists (hasFile). This fetches a fresh, server-authorized signed
+  // URL on mount; getManuscriptDownloadUrlAction re-checks uploader/
+  // SUPER_ADMIN status itself, so a plain ADMIN reviewer here gets "denied"
+  // even though they can reach this page to review the manuscript otherwise.
+  useEffect(() => {
+    if (!hasFile) return;
+    let cancelled = false;
+    getManuscriptDownloadUrlAction(manuscriptId).then((result) => {
+      if (cancelled) return;
+      setFileState(result.success ? { status: "ready", url: result.url } : { status: "denied", error: result.error });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [manuscriptId, hasFile]);
 
   function setRubricScore(key: string, score: number) {
     setRubricScores((prev) => ({ ...prev, [key]: score }));
@@ -118,8 +139,7 @@ export default function SplitScreenWorkspace({
     }
   }
 
-  const isPdf = fileUrl?.toLowerCase().endsWith(".pdf");
-  const isDownloadable = Boolean(fileUrl && fileUrl.startsWith("http"));
+  const isPdf = fileState.status === "ready" && new URL(fileState.url).pathname.toLowerCase().endsWith(".pdf");
 
   return (
     <div className="flex flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
@@ -175,29 +195,27 @@ export default function SplitScreenWorkspace({
                   <p className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
                     SHA-256 Fingerprint
                   </p>
-                  <p className="mt-1 font-mono text-xs">{fileUrl ? "On file, verified at upload time" : "No file attached"}</p>
+                  <p className="mt-1 font-mono text-xs">{hasFile ? "On file, verified at upload time" : "No file attached"}</p>
                 </div>
               </div>
             )}
 
             <div className="flex min-h-100 flex-1 items-center justify-center rounded-md border border-border bg-background">
-              {isPdf && isDownloadable ? (
-                <iframe src={fileUrl!} title="Manuscript document" className="h-full min-h-100 w-full rounded-md" />
-              ) : fileUrl ? (
-                <div className="flex flex-col items-center gap-2 p-6 text-center text-sm text-muted-foreground">
-                  <p>
-                    {isDownloadable
-                      ? "This file type can't be previewed inline."
-                      : "File attached, but no direct preview URL is configured for this storage bucket."}
-                  </p>
-                  {isDownloadable && (
-                    <a href={fileUrl!} target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                      Open file in a new tab
-                    </a>
-                  )}
-                </div>
-              ) : (
+              {!hasFile ? (
                 <p className="p-6 text-sm text-muted-foreground">No file attached to this manuscript.</p>
+              ) : fileState.status === "loading" ? (
+                <p className="p-6 text-sm text-muted-foreground">Loading manuscript file…</p>
+              ) : fileState.status === "denied" ? (
+                <p className="p-6 text-center text-sm text-muted-foreground">{fileState.error}</p>
+              ) : isPdf ? (
+                <iframe src={fileState.url} title="Manuscript document" className="h-full min-h-100 w-full rounded-md" />
+              ) : (
+                <div className="flex flex-col items-center gap-2 p-6 text-center text-sm text-muted-foreground">
+                  <p>This file type can&apos;t be previewed inline.</p>
+                  <a href={fileState.url} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                    Open file in a new tab
+                  </a>
+                </div>
               )}
             </div>
           </CardContent>

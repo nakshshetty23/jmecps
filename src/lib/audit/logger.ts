@@ -12,7 +12,9 @@ export type AuditAction =
   | "manuscript.transition"
   | "user.role_changed"
   | "file.upload_url_requested"
-  | "file.upload_confirmed";
+  | "file.upload_confirmed"
+  | "file.download_url_issued"
+  | "file.download_denied";
 
 export async function logAuditEvent({
   userId,

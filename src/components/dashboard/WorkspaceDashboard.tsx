@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { SUBJECT_CATEGORY_LABELS, type SUBJECT_CATEGORIES } from "@/lib/validations/submission";
 import { getManuscriptCode } from "@/lib/manuscript-code";
 import { createClient } from "@/lib/supabase/client";
+import { getManuscriptDownloadUrlAction } from "@/lib/actions/download";
 import type { Manuscript, ManuscriptStatus, Payment } from "@/generated/prisma/client";
 
 interface Row extends Manuscript {
@@ -288,6 +289,21 @@ function WorkspaceDashboardInner({
   const [sidebarView, setSidebarView] = useState<SidebarView>("matrix");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  async function handleDownload(manuscriptId: string) {
+    setDownloadingId(manuscriptId);
+    try {
+      const result = await getManuscriptDownloadUrlAction(manuscriptId);
+      if (!result.success) {
+        window.alert(result.error);
+        return;
+      }
+      window.open(result.url, "_blank", "noopener,noreferrer");
+    } finally {
+      setDownloadingId(null);
+    }
+  }
 
   const metrics = useMemo(
     () => ({
@@ -474,7 +490,10 @@ function WorkspaceDashboardInner({
                 {rows.map((row) => {
                   const code = getManuscriptCode(row.id, row.created_at);
                   const isExpanded = expandedId === row.id;
-                  const isDownloadable = Boolean(row.file_url && row.file_url.startsWith("http"));
+                  // Download access is enforced server-side (getManuscriptDownloadUrlAction —
+                  // uploader or SUPER_ADMIN only); this only decides whether to show the
+                  // button at all. Co-authors never uploaded the file, so they don't get one.
+                  const canDownload = row.relationship === "own" && Boolean(row.file_url);
                   const categoryLabel =
                     SUBJECT_CATEGORY_LABELS[row.subject_category as (typeof SUBJECT_CATEGORIES)[number]] ??
                     row.subject_category ??
@@ -543,14 +562,15 @@ function WorkspaceDashboardInner({
                                   : "View Status"}
                           </Button>
                           {row.file_url &&
-                            (isDownloadable ? (
+                            (canDownload ? (
                               <Button
+                                type="button"
                                 size="sm"
                                 variant="outline"
-                                render={<a href={row.file_url} target="_blank" rel="noopener noreferrer" />}
-                                nativeButton={false}
+                                disabled={downloadingId === row.id}
+                                onClick={() => handleDownload(row.id)}
                               >
-                                Download PDF
+                                {downloadingId === row.id ? "Preparing…" : "Download PDF"}
                               </Button>
                             ) : (
                               <span className="rounded-md border border-border px-2.5 py-1 text-muted-foreground">

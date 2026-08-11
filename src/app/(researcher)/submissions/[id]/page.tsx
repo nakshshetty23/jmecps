@@ -38,7 +38,13 @@ export default async function EditSubmissionPage({
     references: Array.isArray(manuscript.references) ? (manuscript.references as string[]) : [],
   };
 
-  const initialFile = manuscript.file_url
+  // The raw file reference must not reach anyone but the uploader/
+  // SUPER_ADMIN — getSubmission() also allows co-authors to view this page
+  // read-only, and they are not authorized to download the file, so they
+  // don't get the reference either (matches getManuscriptDownloadUrlAction's
+  // authorization rule).
+  const canAccessFile = manuscript.isOwner || role === "SUPER_ADMIN";
+  const initialFile = manuscript.file_url && canAccessFile
     ? {
         fileUrl: manuscript.file_url,
         fileHash: manuscript.file_hash ?? "",
