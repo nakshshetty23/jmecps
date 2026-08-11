@@ -9,6 +9,8 @@ export default async function DashboardPage() {
   return (
     <WorkspaceDashboard
       email={data.email}
+      fullName={data.fullName}
+      institutionalAffiliation={data.institutionalAffiliation}
       own={data.own}
       coAuthored={data.coAuthored}
       paymentsByManuscriptId={data.paymentsByManuscriptId}

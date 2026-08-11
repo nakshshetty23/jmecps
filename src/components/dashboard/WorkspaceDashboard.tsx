@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { SUBJECT_CATEGORY_LABELS, type SUBJECT_CATEGORIES } from "@/lib/validations/submission";
 import { getManuscriptCode } from "@/lib/manuscript-code";
+import { createClient } from "@/lib/supabase/client";
 import type { Manuscript, ManuscriptStatus, Payment } from "@/generated/prisma/client";
 
 interface Row extends Manuscript {
@@ -15,6 +17,8 @@ interface Row extends Manuscript {
 
 interface WorkspaceDashboardProps {
   email: string;
+  fullName: string;
+  institutionalAffiliation: string;
   own: Manuscript[];
   coAuthored: Manuscript[];
   paymentsByManuscriptId: Record<string, Payment>;
@@ -147,12 +151,18 @@ const QUICK_FILTERS: { value: StatusFilter; label: string }[] = [
   { value: "sit-track", label: "SIT Track" },
 ];
 
-const SUBMISSIONS_GROUP: { label: string; scope?: Scope; href?: string }[] = [
-  { label: "Overview", scope: "all" },
+// Overview/My Submissions/Co-Authored/Drafts are filtered views of the same
+// matrix below, not separate pages — but each still gets its own real,
+// bookmarkable URL via ?scope=, driven by useSearchParams() rather than
+// component-local state, so they're genuinely distinct destinations and not
+// just visual nav items that silently do nothing to the URL. Submit New
+// Manuscript is the one item that's an actual different page.
+const SUBMISSIONS_GROUP: { label: string; scope?: Scope; href: string }[] = [
+  { label: "Overview", scope: "all", href: "/dashboard" },
   { label: "Submit New Manuscript", href: "/submissions/new" },
-  { label: "My Submissions", scope: "mine" },
-  { label: "Co-Authored Manuscripts", scope: "co-authored" },
-  { label: "Drafts", scope: "drafts" },
+  { label: "My Submissions", scope: "mine", href: "/dashboard?scope=mine" },
+  { label: "Co-Authored Manuscripts", scope: "co-authored", href: "/dashboard?scope=co-authored" },
+  { label: "Drafts", scope: "drafts", href: "/dashboard?scope=drafts" },
 ];
 
 const REVIEWER_GROUP: { label: string; view: SidebarView }[] = [
@@ -167,7 +177,7 @@ const SYSTEM_GROUP: { label: string; view: SidebarView }[] = [
   { label: "Settings", view: "settings" },
 ];
 
-const COMING_SOON_COPY: Record<Exclude<SidebarView, "matrix">, { title: string; description: string }> = {
+const COMING_SOON_COPY: Record<Exclude<SidebarView, "matrix" | "settings">, { title: string; description: string }> = {
   reviews: {
     title: "Assigned Reviews",
     description:
@@ -190,15 +200,92 @@ const COMING_SOON_COPY: Record<Exclude<SidebarView, "matrix">, { title: string; 
     title: "Notifications Log",
     description: "A history of submission-status emails sent to you — not yet persisted anywhere queryable.",
   },
-  settings: {
-    title: "Settings",
-    description: "Account settings (name, institution, password) — coming in a later session.",
-  },
 };
 
-export default function WorkspaceDashboard({ email, own, coAuthored, paymentsByManuscriptId }: WorkspaceDashboardProps) {
+// Read-only: there's no self-service profile update mechanism anywhere in
+// this app (the only db.user.update call is the super-admin role change in
+// admin-system.ts) — full_name/institutional_affiliation are set once at
+// registration and never editable after. Showing them as static text is the
+// honest option rather than building an edit form with nothing behind it.
+function SettingsView({ email, fullName, institutionalAffiliation }: Pick<WorkspaceDashboardProps, "email" | "fullName" | "institutionalAffiliation">) {
+  const router = useRouter();
+
+  async function handleSignOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  }
+
+  return (
+    <div className="flex flex-col gap-4 max-w-2xl">
+      <Card className="card-terminal">
+        <CardHeader>
+          <CardTitle className="heading-display text-xl text-primary">Settings</CardTitle>
+          <CardDescription>Account information for your JMECPS profile.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Email</span>
+            <span className="text-sm text-foreground break-all">{email || "Not available"}</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Full Name</span>
+            <span className="text-sm text-foreground">{fullName || "Not available"}</span>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-wide text-muted-foreground">Institutional Affiliation</span>
+            <span className="text-sm text-foreground">{institutionalAffiliation || "Not available"}</span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Profile editing isn&apos;t available yet — there&apos;s no update mechanism wired up for this
+            information beyond what was captured at registration.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card className="card-terminal">
+        <CardHeader>
+          <CardTitle className="text-base">Session</CardTitle>
+          <CardDescription>Sign out of your JMECPS account on this device.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={handleSignOut} className="bg-accent text-accent-foreground hover:bg-accent/80">
+            Sign Out
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// useSearchParams() requires a Suspense boundary; this dashboard is already
+// fully dynamic (server-rendered per request behind auth), so this mostly
+// satisfies the framework requirement rather than causing a visible loading
+// flash on a real navigation.
+export default function WorkspaceDashboard(props: WorkspaceDashboardProps) {
+  return (
+    <Suspense fallback={<div className="px-4 py-8 text-sm text-muted-foreground">Loading…</div>}>
+      <WorkspaceDashboardInner {...props} />
+    </Suspense>
+  );
+}
+
+function isScope(value: string | null): value is Scope {
+  return value === "mine" || value === "co-authored" || value === "drafts";
+}
+
+function WorkspaceDashboardInner({
+  email,
+  fullName,
+  institutionalAffiliation,
+  own,
+  coAuthored,
+  paymentsByManuscriptId,
+}: WorkspaceDashboardProps) {
+  const searchParams = useSearchParams();
+  const scope: Scope = isScope(searchParams.get("scope")) ? (searchParams.get("scope") as Scope) : "all";
   const [sidebarView, setSidebarView] = useState<SidebarView>("matrix");
-  const [scope, setScope] = useState<Scope>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -265,7 +352,20 @@ export default function WorkspaceDashboard({ email, own, coAuthored, paymentsByM
             <p className="subheading-mono mb-2 text-xs">Submissions</p>
             <div className="flex flex-col gap-0.5">
               {SUBMISSIONS_GROUP.map((item) =>
-                item.href ? (
+                item.scope ? (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    onClick={() => setSidebarView("matrix")}
+                    className={`rounded-md px-2 py-1.5 transition-colors hover:bg-muted/40 hover:text-primary ${
+                      sidebarView === "matrix" && scope === item.scope
+                        ? "bg-muted/40 text-primary"
+                        : "text-foreground"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
                   <Link
                     key={item.label}
                     href={item.href}
@@ -273,22 +373,6 @@ export default function WorkspaceDashboard({ email, own, coAuthored, paymentsByM
                   >
                     {item.label}
                   </Link>
-                ) : (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => {
-                      setSidebarView("matrix");
-                      setScope(item.scope!);
-                    }}
-                    className={`rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/40 hover:text-primary ${
-                      sidebarView === "matrix" && scope === item.scope
-                        ? "bg-muted/40 text-primary"
-                        : "text-foreground"
-                    }`}
-                  >
-                    {item.label}
-                  </button>
                 )
               )}
             </div>
@@ -333,7 +417,9 @@ export default function WorkspaceDashboard({ email, own, coAuthored, paymentsByM
       </aside>
 
       <main className="flex-1 px-4 py-8 sm:px-6 lg:px-8">
-        {sidebarView !== "matrix" ? (
+        {sidebarView === "settings" ? (
+          <SettingsView email={email} fullName={fullName} institutionalAffiliation={institutionalAffiliation} />
+        ) : sidebarView !== "matrix" ? (
           <Card className="card-terminal max-w-2xl">
             <CardHeader>
               <CardTitle className="heading-display text-xl text-primary">

@@ -7,6 +7,8 @@ import type { Manuscript, Payment } from "@/generated/prisma/client";
 
 export interface DashboardData {
   email: string;
+  fullName: string;
+  institutionalAffiliation: string;
   own: Manuscript[];
   coAuthored: Manuscript[];
   // Latest payment per manuscript id, for APC status badges — most
@@ -24,6 +26,14 @@ export async function getDashboardData(): Promise<DashboardData | null> {
 
   const role = getUserRole(user);
   if (role !== "RESEARCHER" && role !== "SUPER_ADMIN") return null;
+
+  // full_name/institutional_affiliation live on public.users (populated at
+  // signup by the handle_new_user trigger) — not on the Supabase Auth user
+  // object itself, so this needs its own lookup for the Settings view.
+  const profile = await db.user.findUnique({
+    where: { id: user.id },
+    select: { full_name: true, institutional_affiliation: true },
+  });
 
   const own = await db.manuscript.findMany({
     where: { primary_author_id: user.id },
@@ -59,5 +69,12 @@ export async function getDashboardData(): Promise<DashboardData | null> {
     }
   }
 
-  return { email: user.email ?? "", own, coAuthored, paymentsByManuscriptId };
+  return {
+    email: user.email ?? "",
+    fullName: profile?.full_name ?? "",
+    institutionalAffiliation: profile?.institutional_affiliation ?? "",
+    own,
+    coAuthored,
+    paymentsByManuscriptId,
+  };
 }
