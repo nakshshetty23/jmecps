@@ -24,7 +24,7 @@ interface OtpVerifyStepProps {
 }
 
 // Shared by the register and login pages — both converge on the identical
-// "enter the 6-digit code Supabase emailed you" step once signInWithOtp has
+// "enter the 8-digit code Supabase emailed you" step once signInWithOtp has
 // been called; they only differ in what onVerify/onResend actually do
 // (verifyOtp + redirect target differ, but the OTP UI/countdown mechanics
 // are the same).
@@ -112,24 +112,24 @@ export default function OtpVerifyStep({ email, onVerify, onResend, onChangeEmail
       )}
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="otp">6-digit code</Label>
+        <Label htmlFor="otp">8-digit code</Label>
         <Input
           id="otp"
           name="otp"
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
-          maxLength={6}
+          maxLength={8}
           required
           value={token}
-          onChange={(e) => setToken(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          onChange={(e) => setToken(e.target.value.replace(/\D/g, "").slice(0, 8))}
           className="text-center text-lg tracking-[0.5em] font-mono"
-          placeholder="000000"
+          placeholder="00000000"
           autoFocus
         />
       </div>
 
-      <Button type="submit" disabled={isVerifying || token.length !== 6} className="bg-primary text-primary-foreground hover:bg-primary/80">
+      <Button type="submit" disabled={isVerifying || token.length !== 8} className="bg-primary text-primary-foreground hover:bg-primary/80">
         {isVerifying ? "Verifying…" : "Verify Code"}
       </Button>
 

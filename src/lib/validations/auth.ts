@@ -44,13 +44,13 @@ export const loginCredentialsSchema = z.object({
 
 export type LoginCredentialsInput = z.infer<typeof loginCredentialsSchema>;
 
-// Supabase emails a 6-digit numeric code for both signup and login OTP.
+// Supabase emails an 8-digit numeric code for both signup and login OTP.
 export const otpSchema = z.object({
   token: z
     .string()
     .trim()
-    .length(6, "Enter the 6-digit code")
-    .regex(/^\d{6}$/, "The code must be 6 digits"),
+    .length(8, "Enter the 8-digit code")
+    .regex(/^\d{8}$/, "The code must be 8 digits"),
 });
 
 export type OtpInput = z.infer<typeof otpSchema>;
