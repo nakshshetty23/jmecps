@@ -1,12 +1,7 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -20,8 +15,9 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { createClient } from "@/lib/supabase/client";
-import { getDashboardPath, getUserRole, type Role } from "@/lib/auth/rbac";
+import SignOutButton from "@/components/shared/SignOutButton";
+import { createClient } from "@/lib/supabase/server";
+import { getDashboardPath, getUserRole } from "@/lib/auth/rbac";
 
 const NAV_LINKS = [
   { title: "Home", href: "/" },
@@ -34,48 +30,17 @@ const NAV_LINKS = [
   { title: "Contact Us", href: "/contact-us" },
 ];
 
-type AuthStatus = "loading" | "authenticated" | "unauthenticated";
-
-export default function SiteHeader() {
-  const router = useRouter();
-  const [status, setStatus] = useState<AuthStatus>("loading");
-  const [session, setSession] = useState<{ email: string; role: Role } | null>(null);
-
-  useEffect(() => {
-    const supabase = createClient();
-
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) {
-        setSession({ email: user.email ?? "", role: getUserRole(user) });
-        setStatus("authenticated");
-      } else {
-        setSession(null);
-        setStatus("unauthenticated");
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      const user = newSession?.user;
-      if (user) {
-        setSession({ email: user.email ?? "", role: getUserRole(user) });
-        setStatus("authenticated");
-      } else {
-        setSession(null);
-        setStatus("unauthenticated");
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
-  }
+export default async function SiteHeader() {
+  // Server-rendered so the header ships with its final authenticated/
+  // unauthenticated state on the first response — no client round-trip,
+  // no loading flash. Uses the server Supabase client (cookie-backed,
+  // same mechanism proxy.ts and guard.ts already rely on), not
+  // client-controlled state.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const session = user ? { email: user.email ?? "", role: getUserRole(user) } : null;
 
   const dashboardHref = session ? getDashboardPath(session.role) : "/dashboard";
 
@@ -96,7 +61,7 @@ export default function SiteHeader() {
                   </NavigationMenuLink>
                 </NavigationMenuItem>
               ))}
-              {status === "authenticated" && (
+              {session && (
                 <NavigationMenuItem>
                   <NavigationMenuLink render={<Link href={dashboardHref} target="_blank" rel="noopener noreferrer" />}>
                     Dashboard
@@ -107,15 +72,7 @@ export default function SiteHeader() {
           </NavigationMenu>
 
           <div className="flex items-center gap-2">
-            {status === "loading" && (
-              <div className="hidden sm:flex items-center gap-2" aria-live="polite" aria-busy="true">
-                <span className="sr-only">Checking your session…</span>
-                <Skeleton className="h-8 w-20" />
-                <Skeleton className="h-8 w-20" />
-              </div>
-            )}
-
-            {status === "unauthenticated" && (
+            {!session && (
               <>
                 <Button
                   render={<Link href="/register" />}
@@ -135,7 +92,7 @@ export default function SiteHeader() {
               </>
             )}
 
-            {status === "authenticated" && session && (
+            {session && (
               <div className="hidden sm:flex items-center gap-2">
                 <Button
                   render={<Link href={dashboardHref} target="_blank" rel="noopener noreferrer" />}
@@ -148,9 +105,7 @@ export default function SiteHeader() {
                 <Badge variant="outline" className="max-w-40 truncate border-border text-muted-foreground">
                   {session.email}
                 </Badge>
-                <Button onClick={handleSignOut} className="bg-accent text-accent-foreground hover:bg-accent/80">
-                  Sign Out
-                </Button>
+                <SignOutButton className="bg-accent text-accent-foreground hover:bg-accent/80" />
               </div>
             )}
 
@@ -177,14 +132,7 @@ export default function SiteHeader() {
                     </Link>
                   ))}
 
-                  {status === "loading" && (
-                    <div className="mt-3 flex flex-col gap-2" aria-live="polite" aria-busy="true">
-                      <span className="sr-only">Checking your session…</span>
-                      <Skeleton className="h-9 w-full" />
-                    </div>
-                  )}
-
-                  {status === "authenticated" && session && (
+                  {session && (
                     <>
                       <Link
                         href={dashboardHref}
@@ -197,13 +145,11 @@ export default function SiteHeader() {
                       <Badge variant="outline" className="my-1 w-fit max-w-full truncate border-border text-muted-foreground">
                         {session.email}
                       </Badge>
-                      <Button onClick={handleSignOut} className="mt-2 bg-accent text-accent-foreground hover:bg-accent/80">
-                        Sign Out
-                      </Button>
+                      <SignOutButton className="mt-2 bg-accent text-accent-foreground hover:bg-accent/80" />
                     </>
                   )}
 
-                  {status === "unauthenticated" && (
+                  {!session && (
                     <Button
                       render={<Link href="/login" />}
                       nativeButton={false}
