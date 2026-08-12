@@ -8,6 +8,7 @@ import { getManuscriptCode } from "@/lib/manuscript-code";
 import { assertTransition, InvalidStateTransitionError, UnauthorizedTransitionError, type Actor } from "@/lib/state-machine/manuscript";
 import { onManuscriptPublished } from "@/lib/search/manuscripts";
 import { logAuditEvent } from "@/lib/audit/logger";
+import { isValidUuid } from "@/lib/id";
 import type { ActionResult } from "./submission";
 import type { Manuscript, ManuscriptStatus } from "@/generated/prisma/client";
 
@@ -120,6 +121,9 @@ export async function markPaymentReceivedAction(manuscriptId: string): Promise<A
   if (!admin) {
     return { success: false, errors: { _form: ["You must be signed in as a Super Admin."] } };
   }
+  if (!isValidUuid(manuscriptId)) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
+  }
 
   const existing = await db.manuscript.findUnique({ where: { id: manuscriptId } });
   if (!existing) {
@@ -201,6 +205,9 @@ export async function publishManuscriptAction(manuscriptId: string): Promise<Act
   const admin = await getAuthorizedSuperAdmin();
   if (!admin) {
     return { success: false, errors: { _form: ["You must be signed in as a Super Admin."] } };
+  }
+  if (!isValidUuid(manuscriptId)) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
   }
 
   const existing = await db.manuscript.findUnique({ where: { id: manuscriptId } });

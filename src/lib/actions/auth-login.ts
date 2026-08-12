@@ -8,6 +8,22 @@ export interface LoginStepResult {
   error?: string;
 }
 
+// AuthError.status is always present on a real GoTrue API response (4xx —
+// "Invalid login credentials", "Email not confirmed", rate limits, etc.) —
+// those are the intentional, user-facing messages this form is designed to
+// show. A 5xx/undefined status means something failed before or outside a
+// normal API response (GoTrue itself erroring, a transient fetch failure) —
+// Supabase's own message text for those is not written to be shown to an
+// end user and has, in practice, surfaced internal wording like "Database
+// error querying schema" during this project's own testing. Anonymous,
+// unauthenticated callers reach this on every login attempt, so this is the
+// one place in the app where a third-party SDK's error message is passed
+// straight through to the least-trusted possible caller.
+function safeAuthErrorMessage(error: { message: string; status?: number }, fallback: string): string {
+  if (typeof error.status === "number" && error.status < 500) return error.message;
+  return fallback;
+}
+
 // Supabase has no native email-OTP second factor (its MFA system only
 // supports 'totp'/'phone' factor types — verified against the installed
 // @supabase/auth-js types, not assumed). This is the safest real substitute:
@@ -36,7 +52,7 @@ export async function verifyPasswordAndSendLoginOtpAction({
 
   const { error: passwordError } = await supabase.auth.signInWithPassword({ email, password });
   if (passwordError) {
-    return { success: false, error: passwordError.message };
+    return { success: false, error: safeAuthErrorMessage(passwordError, "Something went wrong. Please try again.") };
   }
 
   // Password confirmed — revoke the transient session this just created
@@ -48,7 +64,7 @@ export async function verifyPasswordAndSendLoginOtpAction({
     options: { shouldCreateUser: false },
   });
   if (otpError) {
-    return { success: false, error: otpError.message };
+    return { success: false, error: safeAuthErrorMessage(otpError, "Something went wrong. Please try again.") };
   }
 
   return { success: true };

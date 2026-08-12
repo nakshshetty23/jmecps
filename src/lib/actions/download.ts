@@ -6,6 +6,7 @@ import { getUserRole } from "@/lib/auth/rbac";
 import { getPresignedDownloadUrl, resolveObjectKeyFromFileUrl } from "@/lib/storage/r2";
 import { logAuditEvent } from "@/lib/audit/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isValidUuid } from "@/lib/id";
 
 export type DownloadActionResult = { success: true; url: string } | { success: false; error: string };
 
@@ -33,6 +34,9 @@ export async function getManuscriptDownloadUrlAction(manuscriptId: string): Prom
   } = await supabase.auth.getUser();
   if (!user) {
     return { success: false, error: "You must be signed in to download this file." };
+  }
+  if (!isValidUuid(manuscriptId)) {
+    return { success: false, error: "File not found." };
   }
 
   const manuscript = await db.manuscript.findUnique({

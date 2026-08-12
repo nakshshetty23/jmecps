@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
 import { makeDraftSchema } from "@/lib/validations/submission";
 import { getJournalSettings, getEnabledCategoryKeys } from "@/lib/journal-settings";
+import { isValidUuid } from "@/lib/id";
 
 // A manuscript stays editable through a revision cycle, not just before its
 // first submission: REVISION_REQUIRED is the editor sending it back to the
@@ -61,6 +62,9 @@ export async function saveDraftAction(
     "";
 
   if (id) {
+    if (!isValidUuid(id)) {
+      return { success: false, errors: { _form: ["Manuscript not found."] } };
+    }
     const existing = await db.manuscript.findUnique({ where: { id } });
     if (!existing || existing.primary_author_id !== user.id) {
       return { success: false, errors: { _form: ["Manuscript not found."] } };
@@ -113,6 +117,7 @@ export async function getSubmission(id: string) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
+  if (!isValidUuid(id)) return null;
 
   const manuscript = await db.manuscript.findUnique({ where: { id } });
   if (!manuscript) return null;

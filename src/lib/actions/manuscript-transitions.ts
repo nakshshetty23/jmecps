@@ -15,6 +15,7 @@ import type { ActionResult } from "./submission";
 import { onManuscriptPublished } from "@/lib/search/manuscripts";
 import { makeSubmitSchema, SUBJECT_CATEGORIES, type AuthorInput } from "@/lib/validations/submission";
 import { logAuditEvent } from "@/lib/audit/logger";
+import { isValidUuid } from "@/lib/id";
 
 // A generous, fixed ceiling — not the current admin-configured word limit.
 // This gate checks the manuscript is *structurally complete* (title,
@@ -51,6 +52,9 @@ export async function transitionManuscriptAction({
   const role = getUserRole(user);
   if (role === "VISITOR") {
     return { success: false, errors: { _form: ["You are not authorized to change this manuscript's status."] } };
+  }
+  if (!isValidUuid(manuscriptId)) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
   }
 
   const existing = await db.manuscript.findUnique({ where: { id: manuscriptId } });

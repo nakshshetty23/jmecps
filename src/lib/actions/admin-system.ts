@@ -6,8 +6,17 @@ import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
 import { getJournalSettings } from "@/lib/journal-settings";
 import { logAuditEvent } from "@/lib/audit/logger";
-import type { UserRole } from "@/generated/prisma/client";
+import { isValidUuid } from "@/lib/id";
+import { UserRole } from "@/generated/prisma/client";
 import type { ActionResult } from "./submission";
+
+// Real runtime values, not just the TS type — updateUserRoleAction's
+// newRole is typed as UserRole at compile time, but a Server Action is
+// reachable via a raw POST that bypasses TypeScript entirely, so a
+// caller-supplied string outside this list would otherwise reach
+// db.user.update()'s enum column and throw an unhandled Prisma validation
+// error before any of our own error handling gets a chance to run.
+const VALID_USER_ROLES = new Set<string>(Object.values(UserRole));
 
 async function getAuthorizedSuperAdmin() {
   const supabase = await createClient();
@@ -163,6 +172,12 @@ export async function updateUserRoleAction({
   if (!admin) {
     return { success: false, errors: { _form: ["You must be signed in as a super admin."] } };
   }
+  if (!isValidUuid(userId)) {
+    return { success: false, errors: { _form: ["User not found."] } };
+  }
+  if (!VALID_USER_ROLES.has(newRole)) {
+    return { success: false, errors: { _form: ["Invalid role."] } };
+  }
 
   const target = await db.user.findUnique({ where: { id: userId } });
   if (!target) {
@@ -224,6 +239,7 @@ export interface RoleAuditEntry {
 export async function getUserRoleAuditTrailAction(userId: string): Promise<RoleAuditEntry[]> {
   const admin = await getAuthorizedSuperAdmin();
   if (!admin) return [];
+  if (!isValidUuid(userId)) return [];
 
   const entries = await db.userRoleAuditLog.findMany({
     where: { target_user_id: userId },
@@ -356,6 +372,14 @@ export async function toggleCategoryEnabledAction({
   const admin = await getAuthorizedSuperAdmin();
   if (!admin) {
     return { success: false, errors: { _form: ["You must be signed in as a super admin."] } };
+  }
+  // enabled is typed as boolean at compile time, but a raw Server Action
+  // POST bypasses that — same class of gap as updateUserRoleAction's
+  // newRole (Phase 6.10): a non-boolean value reaching a Boolean column
+  // throws an unhandled PrismaClientValidationError, confirmed directly
+  // against Prisma before writing this check.
+  if (typeof enabled !== "boolean") {
+    return { success: false, errors: { _form: ["Invalid value."] } };
   }
 
   await db.categorySetting.upsert({

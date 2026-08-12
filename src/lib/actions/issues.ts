@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
 import { getManuscriptCode } from "@/lib/manuscript-code";
 import { logAuditEvent } from "@/lib/audit/logger";
+import { isValidUuid } from "@/lib/id";
 import { Prisma } from "@/generated/prisma/client";
 import type { ActionResult } from "./submission";
 
@@ -97,6 +98,7 @@ async function toManuscriptRow(
 export async function getIssueDetailAction(issueId: string): Promise<IssueDetail | null> {
   const admin = await getAuthorizedSuperAdmin();
   if (!admin) return null;
+  if (!isValidUuid(issueId)) return null;
 
   const issue = await db.issue.findUnique({ where: { id: issueId } });
   if (!issue) return null;
@@ -213,6 +215,9 @@ export async function updateIssueAction({
   if (!admin) {
     return { success: false, errors: { _form: ["You must be signed in as a Super Admin."] } };
   }
+  if (!isValidUuid(issueId)) {
+    return { success: false, errors: { _form: ["Issue not found."] } };
+  }
 
   const existing = await db.issue.findUnique({ where: { id: issueId } });
   if (!existing) {
@@ -261,6 +266,12 @@ export async function assignManuscriptToIssueAction({
   if (!admin) {
     return { success: false, errors: { _form: ["You must be signed in as a Super Admin."] } };
   }
+  if (!isValidUuid(issueId)) {
+    return { success: false, errors: { _form: ["Issue not found."] } };
+  }
+  if (!isValidUuid(manuscriptId)) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
+  }
 
   const issue = await db.issue.findUnique({ where: { id: issueId } });
   if (!issue) {
@@ -306,6 +317,9 @@ export async function removeManuscriptFromIssueAction({
   const admin = await getAuthorizedSuperAdmin();
   if (!admin) {
     return { success: false, errors: { _form: ["You must be signed in as a Super Admin."] } };
+  }
+  if (!isValidUuid(manuscriptId)) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
   }
 
   const manuscript = await db.manuscript.findUnique({ where: { id: manuscriptId } });

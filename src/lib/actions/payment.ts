@@ -8,6 +8,7 @@ import { getRazorpayClient, getRazorpayKeyId, toSmallestUnit, verifyCheckoutSign
 import { applyVerifiedPayment } from "@/lib/payments/apply-payment";
 import { logAuditEvent } from "@/lib/audit/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { isValidUuid } from "@/lib/id";
 import type { ActionResult } from "./submission";
 
 // Per-user, not per-manuscript: a researcher only has a handful of
@@ -36,6 +37,7 @@ export async function initiatePaymentAction(manuscriptId: string): Promise<Initi
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { success: false, error: "You must be signed in to make a payment." };
+  if (!isValidUuid(manuscriptId)) return { success: false, error: "Manuscript not found." };
 
   const manuscript = await db.manuscript.findUnique({ where: { id: manuscriptId } });
   if (!manuscript) return { success: false, error: "Manuscript not found." };

@@ -13,6 +13,7 @@ import {
 } from "@/lib/state-machine/manuscript";
 import { getAuthorizedUser, type ActionResult } from "./submission";
 import { logAuditEvent } from "@/lib/audit/logger";
+import { isValidUuid } from "@/lib/id";
 
 // Finalizing operates on whatever is already persisted (SubmissionForm
 // autosaves via saveDraftAction as the user edits) rather than taking a form
@@ -30,6 +31,9 @@ export async function finalizeSubmissionAction({
       success: false,
       errors: { _form: ["You must be signed in as a researcher to submit a manuscript."] },
     };
+  }
+  if (!isValidUuid(manuscriptId)) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
   }
 
   const existing = await db.manuscript.findUnique({ where: { id: manuscriptId } });

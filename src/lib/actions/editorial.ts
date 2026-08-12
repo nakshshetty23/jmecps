@@ -15,6 +15,7 @@ import type { ActionResult } from "./submission";
 import type { EditorialDecision, Manuscript, ManuscriptStatus } from "@/generated/prisma/client";
 import { getJournalSettings } from "@/lib/journal-settings";
 import { logAuditEvent } from "@/lib/audit/logger";
+import { isValidUuid } from "@/lib/id";
 
 // Default (unfiltered) triage queue view — manuscripts actively waiting on
 // an editor. REVISION_REQUIRED is excluded here on purpose: those are
@@ -226,6 +227,9 @@ export async function assignEditorAction({
   if (!editor) {
     return { success: false, errors: { _form: ["You must be signed in as an editor."] } };
   }
+  if (!isValidUuid(manuscriptId) || (editorId !== null && !isValidUuid(editorId))) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
+  }
 
   const manuscript = await db.manuscript.findUnique({ where: { id: manuscriptId } });
   if (!manuscript || !EDITOR_VISIBLE_STATUSES.includes(manuscript.status)) {
@@ -252,6 +256,7 @@ export interface AuditTrailEntry {
 export async function getManuscriptAuditTrailAction(manuscriptId: string): Promise<AuditTrailEntry[]> {
   const editor = await getAuthorizedEditor();
   if (!editor) return [];
+  if (!isValidUuid(manuscriptId)) return [];
 
   const entries = await db.manuscriptAuditLog.findMany({
     where: { manuscript_id: manuscriptId },
@@ -273,6 +278,7 @@ export async function getManuscriptAuditTrailAction(manuscriptId: string): Promi
 export async function getManuscriptForReview(manuscriptId: string): Promise<ManuscriptForReview | null> {
   const editor = await getAuthorizedEditor();
   if (!editor) return null;
+  if (!isValidUuid(manuscriptId)) return null;
 
   const manuscript = await db.manuscript.findUnique({ where: { id: manuscriptId } });
   if (!manuscript || !EDITOR_VISIBLE_STATUSES.includes(manuscript.status)) return null;
@@ -317,9 +323,19 @@ export async function acquireReviewLockAction({
   if (!editor) {
     return { success: false, errors: { _form: ["You must be signed in as an editor."] } };
   }
+  if (!isValidUuid(manuscriptId)) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
+  }
 
   const manuscript = await db.manuscript.findUnique({ where: { id: manuscriptId } });
-  if (!manuscript) {
+  // Same "not currently in front of an editor" gate as assignEditorAction/
+  // getManuscriptForReview above — without it, this had no status check at
+  // all, so an ADMIN/SUPER_ADMIN could call it directly with any manuscript
+  // ID (e.g. an already-PUBLISHED one) and it would still write
+  // review_lock_by/review_lock_at (Phase 6.7 audit finding; the UI never
+  // triggers this case today since getManuscriptForReview already returns
+  // null for non-reviewable statuses, but the action itself didn't enforce it).
+  if (!manuscript || !EDITOR_VISIBLE_STATUSES.includes(manuscript.status)) {
     return { success: false, errors: { _form: ["Manuscript not found."] } };
   }
 
@@ -342,6 +358,7 @@ export async function acquireReviewLockAction({
 export async function releaseReviewLockAction({ manuscriptId }: { manuscriptId: string }): Promise<void> {
   const editor = await getAuthorizedEditor();
   if (!editor) return;
+  if (!isValidUuid(manuscriptId)) return;
 
   await db.manuscript.updateMany({
     where: { id: manuscriptId, review_lock_by: editor.id },
@@ -363,6 +380,9 @@ export async function saveEditorialNotesAction({
   const editor = await getAuthorizedEditor();
   if (!editor) {
     return { success: false, errors: { _form: ["You must be signed in as an editor."] } };
+  }
+  if (!isValidUuid(manuscriptId)) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
   }
 
   const existingDraft = await db.editorialReview.findFirst({
@@ -408,6 +428,9 @@ export async function submitEditorialDecisionAction({
   const editor = await getAuthorizedEditor();
   if (!editor) {
     return { success: false, errors: { _form: ["You must be signed in as an editor."] } };
+  }
+  if (!isValidUuid(manuscriptId)) {
+    return { success: false, errors: { _form: ["Manuscript not found."] } };
   }
 
   const existing = await db.manuscript.findUnique({ where: { id: manuscriptId } });

@@ -3,6 +3,7 @@ import { unstable_cache, updateTag } from "next/cache";
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/prisma/client";
 import { getManuscriptCode } from "@/lib/manuscript-code";
+import { isValidUuid } from "@/lib/id";
 
 // unstable_cache serializes return values (Dates become ISO strings on a
 // cache hit, since the cache store round-trips through JSON), so both
@@ -300,6 +301,12 @@ async function getPublishedManuscriptDetailUncached(id: string): Promise<Publish
 // per-article, so a specific article can be invalidated without flushing
 // every other cached article too.
 export async function getPublishedManuscriptDetail(id: string): Promise<PublishedManuscriptDetail | null> {
+  // Checked before the cache, not inside getPublishedManuscriptDetailUncached
+  // — a malformed id (e.g. from a crafted /articles/<id> URL) would otherwise
+  // both throw an unhandled Prisma error AND pollute the cache key space
+  // with garbage keys that can never hit.
+  if (!isValidUuid(id)) return null;
+
   const cached = await unstable_cache(
     async () => {
       const result = await getPublishedManuscriptDetailUncached(id);
