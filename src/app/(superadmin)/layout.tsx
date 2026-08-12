@@ -17,6 +17,7 @@ export default async function SuperAdminLayout({
           {[
             { label: "Overview", href: "/control-center" },
             { label: "Manuscripts", href: "/control-center/manuscripts" },
+            { label: "Issues", href: "/control-center/issues" },
             { label: "Role Management", href: "/control-center/users" },
             { label: "Journal Settings", href: "/control-center/settings" },
           ].map((link) => (

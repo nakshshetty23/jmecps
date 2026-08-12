@@ -19,7 +19,11 @@ export type AuditAction =
   | "payment.verified"
   | "payment.failed"
   | "payment.verification_failed"
-  | "payment.webhook_received";
+  | "payment.webhook_received"
+  | "issue.created"
+  | "issue.updated"
+  | "issue.manuscript_assigned"
+  | "issue.manuscript_removed";
 
 export async function logAuditEvent({
   userId,

@@ -309,6 +309,75 @@ export async function onManuscriptPublished(manuscriptId: string): Promise<void>
   updateTag(`article-${manuscriptId}`);
 }
 
+// Phase 6.4 — the public /volumes-and-issues archive's one data need: which
+// manuscripts assigned to a given issue are actually PUBLISHED right now.
+// issue_id is purely an admin-assigned grouping (src/lib/actions/issues.ts)
+// with no bearing on visibility — this re-applies the exact same
+// status = PUBLISHED gate as every other public read in this file, so an
+// issue assignment can never surface a manuscript that hasn't cleared the
+// state machine. Reuses parseAuthors/correspondingAuthorName/authorSummaries
+// above rather than duplicating that shaping logic, and shares the same
+// "search-results" cache tag so onManuscriptPublished's existing
+// invalidation (a manuscript entering/leaving PUBLISHED) covers this too.
+export interface IssueManuscriptSummary {
+  id: string;
+  title: string;
+  correspondingAuthorName: string | null;
+  authors: AuthorSummary[];
+}
+
+async function getPublishedManuscriptsForIssueUncached(issueId: string): Promise<IssueManuscriptSummary[]> {
+  const rows = await db.manuscript.findMany({
+    where: { issue_id: issueId, status: "PUBLISHED" },
+    select: { id: true, title: true, co_authors: true },
+    orderBy: { updated_at: "desc" },
+  });
+
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    correspondingAuthorName: correspondingAuthorName(r.co_authors),
+    authors: authorSummaries(r.co_authors),
+  }));
+}
+
+export async function getPublishedManuscriptsForIssue(issueId: string): Promise<IssueManuscriptSummary[]> {
+  return unstable_cache(
+    () => getPublishedManuscriptsForIssueUncached(issueId),
+    ["published-manuscripts-for-issue", issueId],
+    { tags: ["search-results", `issue-${issueId}`], revalidate: 60 }
+  )();
+}
+
+export interface PublicIssueSummary {
+  id: string;
+  volumeNumber: number;
+  issueNumber: number;
+  publishedAt: Date;
+}
+
+// published_at IS NOT NULL is the one signal this schema has for "this
+// issue is ready to show publicly" — an issue can exist and have
+// manuscripts assigned to it (src/lib/actions/issues.ts) while a
+// SUPER_ADMIN is still preparing it, without that alone making it public;
+// setting a publication date is the deliberate act of announcing it. Not
+// cached like the functions above: the issue list itself is small and
+// changes rarely, so a direct read keeps this simple rather than adding
+// another cache key/tag pair for little benefit.
+export async function getPublicIssues(): Promise<PublicIssueSummary[]> {
+  const issues = await db.issue.findMany({
+    where: { published_at: { not: null } },
+    orderBy: [{ volume_number: "desc" }, { issue_number: "desc" }],
+    select: { id: true, volume_number: true, issue_number: true, published_at: true },
+  });
+  return issues.map((i) => ({
+    id: i.id,
+    volumeNumber: i.volume_number,
+    issueNumber: i.issue_number,
+    publishedAt: i.published_at!,
+  }));
+}
+
 const SEARCH_INDEX_NAMES = [
   "manuscripts_search_vector_idx",
   "manuscripts_title_trgm_idx",

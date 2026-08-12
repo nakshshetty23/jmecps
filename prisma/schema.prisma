@@ -91,6 +91,14 @@ model Manuscript {
   // which is only "who has it open right now."
   assigned_editor_id String? @db.Uuid
   assigned_editor     User?  @relation("ManuscriptAssignedEditor", fields: [assigned_editor_id], references: [id])
+  // Archive grouping only (Phase 6.4) — SUPER_ADMIN-assigned, and only ever
+  // assignable to a manuscript that is already PUBLISHED (enforced in
+  // src/lib/actions/issues.ts, not by this column). Purely metadata: it
+  // plays no role in the state machine and never makes a manuscript public
+  // on its own — see src/lib/search/manuscripts.ts for the actual
+  // status = PUBLISHED gate every public read still goes through.
+  issue_id String? @db.Uuid
+  issue    Issue?  @relation(fields: [issue_id], references: [id])
   created_at          DateTime         @default(now())
   updated_at          DateTime         @updatedAt
 
@@ -108,7 +116,29 @@ model Manuscript {
 
   @@index([file_hash])
   @@index([status])
+  @@index([issue_id])
   @@map("manuscripts")
+}
+
+// A real, admin-managed grouping for the public archive (/volumes-and-
+// issues) — deliberately its own entity rather than volume_number/
+// issue_number columns on Manuscript, since one issue groups many
+// manuscripts and has its own identity/publish date independent of any
+// single paper's own lifecycle. published_at is nullable: an issue can
+// exist (and have manuscripts assigned while a SUPER_ADMIN is still
+// preparing it) before it's ready to announce a date.
+model Issue {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  volume_number  Int
+  issue_number   Int
+  published_at   DateTime?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  manuscripts Manuscript[]
+
+  @@unique([volume_number, issue_number])
+  @@map("issues")
 }
 
 // Immutable append-only record of every lifecycle-state transition, written
