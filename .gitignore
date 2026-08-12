@@ -46,3 +46,7 @@ next-env.d.ts
 # database backups (scripts/backup-db.sh) — dumps contain real data, never commit
 /backups/
 .prisma/
+
+# stray local credential file, never committed but not covered by any rule
+# above — one `git add -A` away from leaking a real key without this
+keys.txt

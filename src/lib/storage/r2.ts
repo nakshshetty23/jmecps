@@ -15,6 +15,17 @@ const r2Client = new S3Client({
 
 const UPLOAD_URL_TTL_SECONDS = 900; // 15 minutes — presigned PUT URLs expire to avoid orphaned/stale grants
 
+// R2/S3 keys are opaque flat strings, not filesystem paths — "../" in a key
+// doesn't let anything escape the bucket the way it would on a real
+// filesystem. Still, fileName is client-supplied and only length-checked
+// by uploadRequestSchema, so a crafted name like "x/../../evil" would
+// otherwise splice arbitrary characters (including slashes) into the
+// extension segment below. Constraining it to a short alnum extension
+// keeps the generated key matching OBJECT_KEY_PATTERN's own expectations
+// (parseObjectKey already requires this shape) rather than relying on that
+// later check alone to catch a malformed key.
+const SAFE_EXTENSION = /^[a-z0-9]{1,10}$/i;
+
 export function buildObjectKey({
   fileName,
   fileHash,
@@ -24,18 +35,29 @@ export function buildObjectKey({
   fileHash: string;
   isSITConference: boolean;
 }): string {
-  const extension = fileName.includes(".") ? fileName.split(".").pop() : "bin";
+  const rawExtension = fileName.includes(".") ? fileName.split(".").pop() : undefined;
+  const extension = rawExtension && SAFE_EXTENSION.test(rawExtension) ? rawExtension.toLowerCase() : "bin";
   const year = new Date().getFullYear();
   const timestamp = Date.now();
   const track = isSITConference ? "sit-conf" : "general";
   return `uploads/${track}/${year}/${timestamp}_${fileHash}.${extension}`;
 }
 
-export async function getPresignedUploadUrl(objectKey: string, contentType: string): Promise<string> {
+// ContentLength is bound into the presigned URL's signature — R2 (like S3)
+// rejects a PUT whose actual Content-Length header doesn't match what was
+// signed, so a client can't request a URL for a small, size-cap-passing
+// file and then upload something larger through the same URL. The
+// server-declared fileSize (already validated against the 25MB cap in
+// uploadRequestSchema) is what gets signed here, not a value the client
+// controls independently at upload time — and browsers compute Content-
+// Length from the real request body themselves, so this can't be spoofed
+// from the legitimate upload path either.
+export async function getPresignedUploadUrl(objectKey: string, contentType: string, contentLength: number): Promise<string> {
   const command = new PutObjectCommand({
     Bucket: process.env.R2_BUCKET_NAME,
     Key: objectKey,
     ContentType: contentType,
+    ContentLength: contentLength,
   });
   return getSignedUrl(r2Client, command, { expiresIn: UPLOAD_URL_TTL_SECONDS });
 }

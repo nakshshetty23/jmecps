@@ -57,7 +57,7 @@ export async function requestUploadUrlAction(input: unknown): Promise<UploadActi
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid upload request." };
   }
-  const { manuscriptId, fileName, fileType, fileHash, isSITConference, overrideDuplicate } = parsed.data;
+  const { manuscriptId, fileName, fileSize, fileType, fileHash, isSITConference, overrideDuplicate } = parsed.data;
 
   const owned = await getOwnedDraftManuscript(manuscriptId);
   if ("error" in owned) return { success: false, error: owned.error };
@@ -90,7 +90,7 @@ export async function requestUploadUrlAction(input: unknown): Promise<UploadActi
   }
 
   const objectKey = buildObjectKey({ fileName, fileHash, isSITConference });
-  const uploadUrl = await getPresignedUploadUrl(objectKey, fileType);
+  const uploadUrl = await getPresignedUploadUrl(objectKey, fileType, fileSize);
 
   await logAuditEvent({
     userId: owned.userId,

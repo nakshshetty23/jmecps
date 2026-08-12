@@ -103,9 +103,19 @@ export function isEmailVerified(user: User): boolean {
 // protocol-relative URLs (`//evil.com`, which browsers resolve to the
 // current scheme + evil.com's host), and backslash tricks some browsers
 // still normalize into `//`.
+//
+// Strips ASCII tab/CR/LF before validating — the WHATWG URL Standard (what
+// every browser actually uses to parse a URL, including the assignment in
+// login/page.tsx's `window.location.href = callbackUrl`) removes those
+// characters from anywhere in the string, not just the ends. Without this,
+// "/\t/evil.com" passes a naive startsWith("//") check (it doesn't
+// literally start with "//") but the browser still collapses it to
+// "//evil.com" — a real, demonstrated open redirect. Validating the same
+// stripped string that will actually be navigated to closes that gap.
 export function getSafeCallbackUrl(raw: string | null): string | null {
   if (!raw) return null;
-  if (!raw.startsWith("/")) return null;
-  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
-  return raw;
+  const stripped = raw.replace(/[\t\r\n]/g, "");
+  if (!stripped.startsWith("/")) return null;
+  if (stripped.startsWith("//") || stripped.startsWith("/\\")) return null;
+  return stripped;
 }
