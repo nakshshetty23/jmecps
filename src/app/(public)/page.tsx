@@ -1,15 +1,44 @@
 import Sidebar from "@/components/shared/Sidebar";
-import ResearchGrid from "@/features/manuscripts/components/ResearchGrid";
-import { getLatestManuscripts } from "@/services/manuscript.service";
+import ResearchGrid, { type PublicationCardData } from "@/features/manuscripts/components/ResearchGrid";
+import { searchPublishedManuscripts } from "@/lib/search/manuscripts";
 import { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "JMECPS | Journal of Multidisciplinary Engineering and Computer Processing Systems",
   description: "High-quality academic research covering multidisciplinary engineering disciplines.",
 };
 
-export default function Home() {
-  const latestManuscripts = getLatestManuscripts();
+// A homepage teaser, not a browse view — small and fixed rather than
+// paginated, matching the 2-column card grid's existing visual layout.
+const HOMEPAGE_PUBLICATION_LIMIT = 4;
+
+// null = the query failed (show a safe error message); [] = it succeeded
+// and there are genuinely zero published manuscripts yet (ResearchGrid
+// renders its own "No published papers yet." for that case) — kept
+// distinct so a real outage never gets silently reported as "nothing's
+// been published," and so nothing fabricated ever fills the gap.
+async function getHomepagePublications(): Promise<PublicationCardData[] | null> {
+  try {
+    const { rows } = await searchPublishedManuscripts({ query: "", limit: HOMEPAGE_PUBLICATION_LIMIT });
+    return rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      author:
+        row.authors.length > 0
+          ? row.authors.map((a) => a.fullName).join(", ")
+          : (row.correspondingAuthorName ?? "Unknown"),
+      abstract: row.abstract,
+      date: row.publishedAt.toLocaleDateString("en-US", { year: "numeric", month: "long" }),
+    }));
+  } catch (err) {
+    console.error("Failed to load latest publications for the homepage:", err);
+    return null;
+  }
+}
+
+export default async function Home() {
+  const latestManuscripts = await getHomepagePublications();
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 relative z-10">
@@ -29,9 +58,9 @@ export default function Home() {
             Advancing the frontier of modern scientific discovery with peer-reviewed excellence.
           </p>
           <div className="mt-8">
-            <button className="btn-primary">
+            <Link href="/search" className="btn-primary inline-block">
               Explore Latest Issue
-            </button>
+            </Link>
           </div>
         </div>
       </section>
@@ -70,7 +99,13 @@ export default function Home() {
             <h2 className="heading-display text-2xl pb-2 mb-6 border-b border-border text-accent">
               [ LATEST PUBLICATIONS ]
             </h2>
-            <ResearchGrid papers={latestManuscripts} />
+            {latestManuscripts === null ? (
+              <p className="font-mono text-sm text-text opacity-70 border border-border p-6 bg-background">
+                Unable to load publications right now. Please try again later.
+              </p>
+            ) : (
+              <ResearchGrid papers={latestManuscripts} />
+            )}
           </div>
         </div>
 
