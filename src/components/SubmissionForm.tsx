@@ -275,11 +275,16 @@ export default function SubmissionForm({
               id="category"
               {...register("category")}
               defaultValue=""
-              className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              className="flex h-9 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 [color-scheme:dark]"
             >
-              <option value="">Select a category…</option>
+              {/* Native <option> popups render with the browser's own light
+                  chrome by default, regardless of inherited dark-theme CSS —
+                  color-scheme on the <select> plus explicit bg/text classes
+                  on each <option> are the standards-based fix (no custom
+                  dropdown needed); see Phase 6.15 report for per-engine notes. */}
+              <option value="" className="bg-popover text-popover-foreground">Select a category…</option>
               {categoryOptions.map((value) => (
-                <option key={value} value={value}>
+                <option key={value} value={value} className="bg-popover text-popover-foreground">
                   {SUBJECT_CATEGORY_LABELS[value]}
                 </option>
               ))}
@@ -428,7 +433,8 @@ export default function SubmissionForm({
 
       <Card>
         <CardHeader>
-          <CardTitle className="heading-display text-xl text-primary">References</CardTitle>
+          <CardTitle className="heading-display text-xl text-primary">Research Paper</CardTitle>
+          <CardDescription>Citations referenced in this manuscript.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <div className="flex gap-2">
