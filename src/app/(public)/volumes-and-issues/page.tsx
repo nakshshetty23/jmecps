@@ -15,29 +15,37 @@ export const metadata: Metadata = {
 // issue's manuscript list is independently re-filtered to
 // status = PUBLISHED, so even a manuscript still carrying an issue_id from
 // before it was, say, withdrawn can never surface publicly.
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
 async function IssueSection({ issue }: { issue: PublicIssueSummary }) {
   const manuscripts = await getPublishedManuscriptsForIssue(issue.id);
 
   return (
     <div className="card-terminal">
       <h2 className="heading-display text-2xl text-text mb-1">
-        Volume {issue.volumeNumber} <span className="text-primary">Issue {issue.issueNumber}</span>
+        Volume {issue.volumeNumber} — <span className="text-primary">Issue {issue.issueNumber}</span>
       </h2>
       <p className="font-mono text-xs text-text opacity-70 mb-4 uppercase tracking-widest">
-        {issue.publishedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+        Published: {formatDate(issue.publishedAt)}
       </p>
       {manuscripts.length === 0 ? (
-        <p className="text-sm text-text opacity-70">No published papers in this issue yet.</p>
+        <p className="text-sm text-text opacity-70">No published manuscripts are assigned to this issue yet.</p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-4">
           {manuscripts.map((m) => (
-            <li key={m.id} className="border-t border-border pt-3 first:border-0 first:pt-0">
-              <Link href={`/articles/${m.id}`} className="text-text hover:text-primary font-medium transition-none">
-                {m.title}
-              </Link>
-              <p className="font-mono text-xs text-accent uppercase tracking-widest mt-1">
-                {m.authors.length > 0 ? m.authors.map((a) => a.fullName).join(", ") : (m.correspondingAuthorName ?? "Unknown")}
-              </p>
+            <li key={m.id} className="flex gap-2 border-t border-border pt-4 first:border-0 first:pt-0">
+              <span className="text-primary" aria-hidden="true">•</span>
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <Link href={`/articles/${m.id}`} className="text-text hover:text-primary font-medium transition-none break-words">
+                  {m.title}
+                </Link>
+                <p className="font-mono text-xs text-accent uppercase tracking-widest">
+                  {m.authors.length > 0 ? m.authors.map((a) => a.fullName).join(", ") : (m.correspondingAuthorName ?? "Unknown")}
+                </p>
+                <p className="font-mono text-xs text-text opacity-60">Published {formatDate(m.publishedAt)}</p>
+              </div>
             </li>
           ))}
         </ul>
@@ -60,7 +68,7 @@ export default async function Archive() {
           {issues.length === 0 ? (
             <div className="card-terminal">
               <p className="font-mono text-sm text-text opacity-80 leading-relaxed">
-                Publication archive is being prepared. No issues have been published yet.
+                No issues have been published yet.
               </p>
               <div className="mt-6">
                 <Link href="/search" className="btn-primary inline-block">
@@ -69,7 +77,7 @@ export default async function Archive() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-8">
               {issues.map((issue) => (
                 <IssueSection key={issue.id} issue={issue} />
               ))}

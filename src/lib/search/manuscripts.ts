@@ -324,12 +324,17 @@ export interface IssueManuscriptSummary {
   title: string;
   correspondingAuthorName: string | null;
   authors: AuthorSummary[];
+  // Same field/meaning as SearchResultRow.publishedAt and the article
+  // page's "Published <date>" line (manuscript.updated_at) — not a new
+  // field, just surfaced here too rather than inventing a second notion of
+  // "when this paper was published."
+  publishedAt: Date;
 }
 
 async function getPublishedManuscriptsForIssueUncached(issueId: string): Promise<IssueManuscriptSummary[]> {
   const rows = await db.manuscript.findMany({
     where: { issue_id: issueId, status: "PUBLISHED" },
-    select: { id: true, title: true, co_authors: true },
+    select: { id: true, title: true, co_authors: true, updated_at: true },
     orderBy: { updated_at: "desc" },
   });
 
@@ -338,15 +343,25 @@ async function getPublishedManuscriptsForIssueUncached(issueId: string): Promise
     title: r.title,
     correspondingAuthorName: correspondingAuthorName(r.co_authors),
     authors: authorSummaries(r.co_authors),
+    publishedAt: r.updated_at,
   }));
 }
 
 export async function getPublishedManuscriptsForIssue(issueId: string): Promise<IssueManuscriptSummary[]> {
-  return unstable_cache(
-    () => getPublishedManuscriptsForIssueUncached(issueId),
+  // unstable_cache round-trips through JSON — publishedAt (a Date) comes
+  // back as a string on a cache hit but stays a real Date on a miss unless
+  // explicitly normalized both ways, same as searchPublishedManuscripts/
+  // getPublishedManuscriptDetail above handle their own Date fields.
+  const cached = await unstable_cache(
+    async () => {
+      const rows = await getPublishedManuscriptsForIssueUncached(issueId);
+      return rows.map((r) => ({ ...r, publishedAt: r.publishedAt.toISOString() }));
+    },
     ["published-manuscripts-for-issue", issueId],
     { tags: ["search-results", `issue-${issueId}`], revalidate: 60 }
   )();
+
+  return cached.map((r) => ({ ...r, publishedAt: new Date(r.publishedAt) }));
 }
 
 export interface PublicIssueSummary {
@@ -367,7 +382,11 @@ export interface PublicIssueSummary {
 export async function getPublicIssues(): Promise<PublicIssueSummary[]> {
   const issues = await db.issue.findMany({
     where: { published_at: { not: null } },
-    orderBy: [{ volume_number: "desc" }, { issue_number: "desc" }],
+    // Newest published issue first — published_at is the actual ordering
+    // signal (an admin could in principle publish a lower volume/issue
+    // number later), with volume/issue number only as a deterministic
+    // tiebreaker for same-date issues.
+    orderBy: [{ published_at: "desc" }, { volume_number: "desc" }, { issue_number: "desc" }],
     select: { id: true, volume_number: true, issue_number: true, published_at: true },
   });
   return issues.map((i) => ({
