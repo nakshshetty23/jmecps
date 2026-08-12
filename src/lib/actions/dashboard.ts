@@ -3,7 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
-import type { Manuscript, Payment } from "@/generated/prisma/client";
+import type { Manuscript } from "@/generated/prisma/client";
+import type { DashboardPaymentInfo } from "@/components/dashboard/WorkspaceDashboard";
 
 export interface DashboardData {
   email: string;
@@ -13,8 +14,12 @@ export interface DashboardData {
   coAuthored: Manuscript[];
   // Latest payment per manuscript id, for APC status badges — most
   // manuscripts will have none (only PAYMENT_PENDING/PAYMENT_COMPLETED ones
-  // do), so this is a sparse lookup rather than a field on every row.
-  paymentsByManuscriptId: Record<string, Payment>;
+  // do), so this is a sparse lookup rather than a field on every row. Only
+  // status/invoice_url are selected below (not the full Payment row) —
+  // this goes straight to a client component, and the full row carries
+  // internal Razorpay order/payment IDs and the confirming admin's user ID
+  // that the dashboard has no reason to expose.
+  paymentsByManuscriptId: Record<string, DashboardPaymentInfo>;
 }
 
 export async function getDashboardData(): Promise<DashboardData | null> {
@@ -59,13 +64,14 @@ export async function getDashboardData(): Promise<DashboardData | null> {
   const payments = await db.payment.findMany({
     where: { manuscript_id: { in: own.map((m) => m.id) } },
     orderBy: { created_at: "desc" },
+    select: { manuscript_id: true, status: true, invoice_url: true },
   });
   // findMany above is already newest-first, so the first occurrence per
   // manuscript id kept here is the latest payment for it.
-  const paymentsByManuscriptId: Record<string, Payment> = {};
+  const paymentsByManuscriptId: Record<string, DashboardPaymentInfo> = {};
   for (const payment of payments) {
     if (!paymentsByManuscriptId[payment.manuscript_id]) {
-      paymentsByManuscriptId[payment.manuscript_id] = payment;
+      paymentsByManuscriptId[payment.manuscript_id] = { status: payment.status, invoice_url: payment.invoice_url };
     }
   }
 

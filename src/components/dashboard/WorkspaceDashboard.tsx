@@ -16,13 +16,20 @@ interface Row extends Manuscript {
   relationship: "own" | "co-author";
 }
 
+// Only what ApcBadge below actually renders — the full Payment row
+// (transaction_ref, amount, gateway_log with internal Razorpay
+// order/payment IDs and the confirming admin's user ID, etc.) has no
+// reason to reach this client component. See getDashboardData in
+// src/lib/actions/dashboard.ts, which now selects only these fields.
+export type DashboardPaymentInfo = Pick<Payment, "status" | "invoice_url">;
+
 interface WorkspaceDashboardProps {
   email: string;
   fullName: string;
   institutionalAffiliation: string;
   own: Manuscript[];
   coAuthored: Manuscript[];
-  paymentsByManuscriptId: Record<string, Payment>;
+  paymentsByManuscriptId: Record<string, DashboardPaymentInfo>;
 }
 
 type Scope = "all" | "mine" | "co-authored" | "drafts";
@@ -94,7 +101,7 @@ function OrcidBadge({ manuscript }: { manuscript: Manuscript }) {
 // deliberate infrastructure decision — same class as the R2/SES choices
 // made earlier — not something to silently fake here). "Pay Now" and
 // "Complete Payment" surface an honest notice instead of a broken checkout.
-function ApcBadge({ manuscript, payment }: { manuscript: Manuscript; payment: Payment | undefined }) {
+function ApcBadge({ manuscript, payment }: { manuscript: Manuscript; payment: DashboardPaymentInfo | undefined }) {
   const [showNotice, setShowNotice] = useState(false);
 
   if (manuscript.status === "PAYMENT_PENDING") {
