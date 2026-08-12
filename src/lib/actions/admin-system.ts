@@ -248,6 +248,11 @@ export interface JournalSettingsData {
   publisherName: string;
   abstractWordLimit: number;
   staleReviewThresholdDays: number;
+  // Phase 3 payment gateway — publicationFeeAmount of 0 means "not yet
+  // configured"; initiatePaymentAction refuses to start a checkout until a
+  // real Super Admin sets this to a positive value.
+  publicationFeeAmount: number;
+  publicationFeeCurrency: string;
 }
 
 export async function getJournalSettingsAction(): Promise<JournalSettingsData | null> {
@@ -263,6 +268,8 @@ export async function getJournalSettingsAction(): Promise<JournalSettingsData | 
     publisherName: settings.publisher_name,
     abstractWordLimit: settings.abstract_word_limit,
     staleReviewThresholdDays: settings.stale_review_threshold_days,
+    publicationFeeAmount: Number(settings.publication_fee_amount),
+    publicationFeeCurrency: settings.publication_fee_currency,
   };
 }
 
@@ -278,6 +285,13 @@ export async function updateJournalSettingsAction(data: JournalSettingsData): Pr
   if (data.staleReviewThresholdDays < 1 || data.staleReviewThresholdDays > 90) {
     return { success: false, errors: { staleReviewThresholdDays: ["Must be between 1 and 90 days."] } };
   }
+  if (data.publicationFeeAmount < 0 || !Number.isFinite(data.publicationFeeAmount)) {
+    return { success: false, errors: { publicationFeeAmount: ["Must be a non-negative amount."] } };
+  }
+  const currency = data.publicationFeeCurrency.trim().toUpperCase();
+  if (!/^[A-Z]{3}$/.test(currency)) {
+    return { success: false, errors: { publicationFeeCurrency: ["Must be a 3-letter currency code, e.g. INR."] } };
+  }
 
   await db.journalSettings.upsert({
     where: { id: "singleton" },
@@ -288,6 +302,8 @@ export async function updateJournalSettingsAction(data: JournalSettingsData): Pr
       publisher_name: data.publisherName,
       abstract_word_limit: data.abstractWordLimit,
       stale_review_threshold_days: data.staleReviewThresholdDays,
+      publication_fee_amount: data.publicationFeeAmount,
+      publication_fee_currency: currency,
     },
     create: {
       id: "singleton",
@@ -297,6 +313,8 @@ export async function updateJournalSettingsAction(data: JournalSettingsData): Pr
       publisher_name: data.publisherName,
       abstract_word_limit: data.abstractWordLimit,
       stale_review_threshold_days: data.staleReviewThresholdDays,
+      publication_fee_amount: data.publicationFeeAmount,
+      publication_fee_currency: currency,
     },
   });
 

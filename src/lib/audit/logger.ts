@@ -14,7 +14,12 @@ export type AuditAction =
   | "file.upload_url_requested"
   | "file.upload_confirmed"
   | "file.download_url_issued"
-  | "file.download_denied";
+  | "file.download_denied"
+  | "payment.initiated"
+  | "payment.verified"
+  | "payment.failed"
+  | "payment.verification_failed"
+  | "payment.webhook_received";
 
 export async function logAuditEvent({
   userId,

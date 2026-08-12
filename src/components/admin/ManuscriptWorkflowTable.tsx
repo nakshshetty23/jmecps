@@ -33,7 +33,12 @@ function WorkflowRowActions({ row }: { row: WorkflowRow }) {
   const [error, setError] = useState<string | null>(null);
 
   async function handleMarkPaymentReceived() {
-    if (!window.confirm("Record payment as received for this manuscript?")) return;
+    if (
+      !window.confirm(
+        "Record an OFFLINE/manual payment for this manuscript? Use this only for waivers or off-gateway arrangements — a real Razorpay payment is confirmed automatically."
+      )
+    )
+      return;
     setError(null);
     setPending(true);
     try {
@@ -73,7 +78,7 @@ function WorkflowRowActions({ row }: { row: WorkflowRow }) {
       )}
       {(row.status === "APPROVED" || row.status === "PAYMENT_PENDING") && (
         <Button size="sm" variant="outline" disabled={pending} onClick={handleMarkPaymentReceived}>
-          {pending ? "Working…" : "Mark Payment Received"}
+          {pending ? "Working…" : "Record Offline Payment"}
         </Button>
       )}
       {row.status === "PAYMENT_COMPLETED" && (
@@ -121,7 +126,16 @@ export default function ManuscriptWorkflowTable({ rows }: { rows: WorkflowRow[] 
                 <StatusBadge status={row.status} />
               </td>
               <td className="px-3 py-3 text-xs text-muted-foreground">
-                {row.latestPaymentAt ? `Received ${row.latestPaymentAt.toLocaleDateString("en-US")}` : "—"}
+                {row.latestPayment ? (
+                  <div className="flex flex-col gap-0.5">
+                    <span className={row.latestPayment.gateway === "manual" ? "text-amber-400" : "text-emerald-400"}>
+                      {row.latestPayment.gateway === "manual" ? "Offline (manual)" : "Razorpay"} · {row.latestPayment.verifiedAt.toLocaleDateString("en-US")}
+                    </span>
+                    <span className="font-mono">{row.latestPayment.gatewayPaymentId ?? row.latestPayment.reference}</span>
+                  </div>
+                ) : (
+                  "—"
+                )}
               </td>
               <td className="px-3 py-3">
                 <WorkflowRowActions row={row} />

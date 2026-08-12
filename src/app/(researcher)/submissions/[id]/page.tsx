@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import SubmissionForm from "@/components/SubmissionForm";
 import ManuscriptStatusTracker from "@/components/ManuscriptStatusTracker";
+import PaymentPanel from "@/components/PaymentPanel";
 import { getSubmission } from "@/lib/actions/submission";
 import { SUBJECT_CATEGORIES, type DraftFormValues } from "@/lib/validations/submission";
 import { createClient } from "@/lib/supabase/server";
@@ -61,6 +62,16 @@ export default async function EditSubmissionPage({
           role={role as "RESEARCHER" | "ADMIN" | "SUPER_ADMIN"}
           isOwner={manuscript.isOwner}
         />
+        <div className="mt-4">
+          <PaymentPanel
+            manuscriptId={manuscript.id}
+            manuscriptTitle={manuscript.title}
+            status={manuscript.status}
+            isOwner={manuscript.isOwner}
+            feeAmount={Number(settings.publication_fee_amount)}
+            feeCurrency={settings.publication_fee_currency}
+          />
+        </div>
       </div>
       <SubmissionForm
         manuscriptId={manuscript.id}

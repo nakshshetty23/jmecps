@@ -30,7 +30,15 @@ const ROUTE_RULES: { prefix: string; category: RouteCategory }[] = [
 // already gets sent, and 403 is where a wrong-role user already gets sent;
 // gating either would create a redirect loop or a confusing detour.
 // Exact-match only ("/" as a prefix would swallow every route).
-const PUBLIC_EXACT_PATHS = new Set<string>(["/", "/verify-notice", "/403"]);
+//
+// The Razorpay webhook (Phase 3) is also listed here — NOT because it's a
+// guest-accessible page, but because it's a machine-to-machine request
+// authenticated by gateway signature (see src/app/api/webhooks/razorpay/
+// route.ts), never by a Supabase session. It would otherwise fall into the
+// "authenticated" default below and get redirected to /login, which
+// Razorpay's server can't follow — breaking the webhook entirely. This is
+// a single exact path, not a broad /api/* exemption.
+const PUBLIC_EXACT_PATHS = new Set<string>(["/", "/verify-notice", "/403", "/api/webhooks/razorpay"]);
 
 // Domain-bounded, not a `role >= required` hierarchy: RESEARCHER and ADMIN
 // are mutually exclusive over each other's routes. Only SUPER_ADMIN has

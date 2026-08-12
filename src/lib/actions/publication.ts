@@ -40,10 +40,17 @@ const WORKFLOW_STATUSES: ManuscriptStatus[] = [
   "REJECTED",
 ];
 
+export interface WorkflowPaymentInfo {
+  reference: string; // Razorpay order ID, or the MANUAL-... ref for offline payments
+  gateway: "razorpay" | "manual";
+  gatewayPaymentId: string | null;
+  verifiedAt: Date;
+}
+
 export interface WorkflowRow extends Manuscript {
   manuscriptCode: string;
   primaryAuthorName: string;
-  latestPaymentAt: Date | null;
+  latestPayment: WorkflowPaymentInfo | null;
 }
 
 export async function getSuperAdminManuscriptWorkflowAction(): Promise<WorkflowRow[]> {
@@ -64,18 +71,23 @@ export async function getSuperAdminManuscriptWorkflowAction(): Promise<WorkflowR
     where: { manuscript_id: { in: manuscriptIds }, status: "COMPLETED" },
     orderBy: { created_at: "desc" },
   });
-  const latestPaymentByManuscriptId = new Map<string, Date>();
+  const latestPaymentByManuscriptId = new Map<string, WorkflowPaymentInfo>();
   for (const payment of payments) {
-    if (!latestPaymentByManuscriptId.has(payment.manuscript_id)) {
-      latestPaymentByManuscriptId.set(payment.manuscript_id, payment.created_at);
-    }
+    if (latestPaymentByManuscriptId.has(payment.manuscript_id)) continue;
+    const log = (payment.gateway_log ?? {}) as Record<string, unknown>;
+    latestPaymentByManuscriptId.set(payment.manuscript_id, {
+      reference: payment.transaction_ref,
+      gateway: log.manual === true ? "manual" : "razorpay",
+      gatewayPaymentId: typeof log.razorpay_payment_id === "string" ? log.razorpay_payment_id : null,
+      verifiedAt: payment.updated_at,
+    });
   }
 
   return manuscripts.map((m) => ({
     ...m,
     manuscriptCode: getManuscriptCode(m.id, m.created_at),
     primaryAuthorName: nameById.get(m.primary_author_id) ?? "Unknown",
-    latestPaymentAt: latestPaymentByManuscriptId.get(m.id) ?? null,
+    latestPayment: latestPaymentByManuscriptId.get(m.id) ?? null,
   }));
 }
 
@@ -91,15 +103,18 @@ async function recordTransition(manuscriptId: string, from: ManuscriptStatus, to
   });
 }
 
-// No payment gateway exists yet (Phase 1) — this is the manual override a
-// Super Admin uses to record that payment has actually come in through
-// some out-of-band channel. Moves APPROVED -> PAYMENT_PENDING ->
-// PAYMENT_COMPLETED (both hops, since there's no gateway to pause on
-// PAYMENT_PENDING for in between) and creates a real Payment row — a bare
-// status flip wouldn't "identify that the payment was manually confirmed"
-// the way the task requires, so this uses the existing Payment model
-// (gateway_log is a free-form Json field, exactly suited to recording a
-// manual-confirmation marker) rather than adding new schema.
+// Phase 3 note: the gateway (Razorpay) is now the normal path — a
+// researcher pays via initiatePaymentAction/verifyPaymentAction
+// (src/lib/actions/payment.ts) and the webhook
+// (src/app/api/webhooks/razorpay/route.ts) confirms it automatically, with
+// no Super Admin action needed. This function is RETAINED as a deliberate,
+// separate manual/offline override — the journal's own public Publication
+// Charges page already advertises fee waivers and offline arrangements
+// (bank transfer, waived fees for early-career researchers, etc.), and
+// there's no other way to record those without a real gateway transaction.
+// It stays SUPER_ADMIN-only with full audit logging, and is clearly marked
+// gateway: "manual" (via gateway_log) so it's never confused with a real
+// verified payment in the workflow table below.
 export async function markPaymentReceivedAction(manuscriptId: string): Promise<ActionResult> {
   const admin = await getAuthorizedSuperAdmin();
   if (!admin) {

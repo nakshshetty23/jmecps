@@ -176,6 +176,16 @@ model JournalSettings {
   publisher_name               String   @default("")
   abstract_word_limit          Int      @default(300)
   stale_review_threshold_days Int      @default(5)
+  // Publication fee (Article Processing Charge) for Phase 3's payment
+  // gateway integration — SUPER_ADMIN-configurable via the same settings
+  // form as the fields above. 0 means "not yet configured"; initiating a
+  // payment refuses to proceed until a real admin sets this. Single
+  // currency only: the public Publication Charges page's INR-vs-USD
+  // split by author nationality isn't implementable today (no
+  // nationality/country field exists anywhere), so Phase 3 uses one
+  // amount + currency, defaulting to INR since JMECPS operates in India.
+  publication_fee_amount   Decimal @default(0) @db.Decimal(10, 2)
+  publication_fee_currency String  @default("INR")
   updated_at                   DateTime @updatedAt
 
   @@map("journal_settings")

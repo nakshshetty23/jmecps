@@ -81,6 +81,32 @@ export default function JournalSettingsForm({ initial }: { initial: JournalSetti
             onChange={(e) => update("staleReviewThresholdDays", parseInt(e.target.value, 10) || 0)}
           />
         </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="publication-fee">Publication Fee (APC)</Label>
+          <Input
+            id="publication-fee"
+            type="number"
+            min={0}
+            step="0.01"
+            value={values.publicationFeeAmount}
+            onChange={(e) => update("publicationFeeAmount", parseFloat(e.target.value) || 0)}
+          />
+          {values.publicationFeeAmount === 0 && (
+            <span className="text-xs text-amber-400">
+              0 = not yet configured. Researchers cannot start a payment until this is set.
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="publication-fee-currency">Publication Fee Currency</Label>
+          <Input
+            id="publication-fee-currency"
+            value={values.publicationFeeCurrency}
+            maxLength={3}
+            onChange={(e) => update("publicationFeeCurrency", e.target.value.toUpperCase())}
+            placeholder="INR"
+          />
+        </div>
       </div>
 
       {error && (
