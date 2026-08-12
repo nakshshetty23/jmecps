@@ -1,12 +1,26 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/env";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export interface LoginStepResult {
   success: boolean;
   error?: string;
 }
+
+// The real authentication-attempt boundary (Phase 6.14) — this is the one
+// place a password is actually checked against Supabase, so this is where
+// brute-force protection belongs, not on GET /login page loads (see
+// proxy.ts's RATE_LIMITS comment for why that was the wrong boundary).
+// Same 5/60s policy the old page-load limit used; only where it's applied
+// changed. IP-keyed, matching every other unauthenticated-caller limiter
+// in this app (there's no other identifier available before a session
+// exists, and per-email keying would let a limiter double as an
+// account-enumeration oracle).
+const LOGIN_ATTEMPT_RATE_LIMIT = 5;
+const LOGIN_ATTEMPT_RATE_WINDOW_MS = 60 * 1000;
 
 // AuthError.status is always present on a real GoTrue API response (4xx —
 // "Invalid login credentials", "Email not confirmed", rate limits, etc.) —
@@ -42,6 +56,16 @@ export async function verifyPasswordAndSendLoginOtpAction({
   email: string;
   password: string;
 }): Promise<LoginStepResult> {
+  // Runs before any Supabase call: fails fast without spending Supabase's
+  // own signInWithPassword/signInWithOtp quota, and the message is
+  // identical regardless of whether the email exists, so this can't be
+  // used to enumerate accounts.
+  const ip = getClientIp(await headers());
+  const rateLimit = checkRateLimit(`login-attempt:${ip}`, LOGIN_ATTEMPT_RATE_LIMIT, LOGIN_ATTEMPT_RATE_WINDOW_MS);
+  if (!rateLimit.allowed) {
+    return { success: false, error: "Too many login attempts. Please wait a minute and try again." };
+  }
+
   const { url, key } = getSupabaseEnv();
   const supabase = createServerClient(url, key, {
     cookies: {

@@ -12,15 +12,25 @@ import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const ONE_MINUTE_MS = 60 * 1000;
 
-// Note on what this actually protects: /login and /register submit via
-// client-side JS calling Supabase directly (never touching this proxy) —
-// so this limits how often an IP can load *our page*, not the underlying
-// signInWithOtp/verifyOtp calls themselves (those hit Supabase's own API
-// and are subject to Supabase's own rate limiting — the same
-// over_email_send_rate_limit this project has already hit in testing).
-// Real protection against direct API abuse, not just our page.
+// Note on what this actually protects: /register submits via client-side JS
+// calling Supabase directly (never touching this proxy) — so this limits
+// how often an IP can load *our page*, not the underlying signInWithOtp/
+// verifyOtp calls themselves (those hit Supabase's own API and are subject
+// to Supabase's own rate limiting — the same over_email_send_rate_limit
+// this project has already hit in testing).
+//
+// /login is deliberately NOT here (Phase 6.14) — every protected route a
+// signed-out visitor hits redirects here (see the `!user` branch below),
+// so ordinary browsing generates real, non-prefetch GET /login requests
+// that have nothing to do with an authentication attempt. Rate-limiting
+// page loads here meant a handful of nav clicks could exhaust the same
+// budget meant to slow down credential stuffing, while never actually
+// touching the real attempt. The real boundary — password verification —
+// is now rate-limited server-side inside verifyPasswordAndSendLoginOtpAction
+// itself (src/lib/actions/auth-login.ts), reusing this same rate-limit.ts,
+// which is where a POST for that Server Action actually lands regardless
+// of what this table does.
 const RATE_LIMITS: { prefix: string; limit: number; windowMs: number }[] = [
-  { prefix: "/login", limit: 5, windowMs: ONE_MINUTE_MS },
   { prefix: "/register", limit: 5, windowMs: ONE_MINUTE_MS },
   { prefix: "/search", limit: 60, windowMs: ONE_MINUTE_MS },
 ];
