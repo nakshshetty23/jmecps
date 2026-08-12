@@ -7,7 +7,14 @@ import { assertTransition, InvalidStateTransitionError, UnauthorizedTransitionEr
 import { getRazorpayClient, getRazorpayKeyId, toSmallestUnit, verifyCheckoutSignature } from "@/lib/payments/razorpay";
 import { applyVerifiedPayment } from "@/lib/payments/apply-payment";
 import { logAuditEvent } from "@/lib/audit/logger";
+import { checkRateLimit } from "@/lib/rate-limit";
 import type { ActionResult } from "./submission";
+
+// Per-user, not per-manuscript: a researcher only has a handful of
+// manuscripts ever awaiting payment at once, so this bounds repeated
+// Razorpay-order-creation/verification calls without needing a finer key.
+const PAYMENT_RATE_LIMIT = 10;
+const PAYMENT_RATE_WINDOW_MS = 60 * 1000;
 
 export type InitiatePaymentResult =
   | {
@@ -38,6 +45,11 @@ export async function initiatePaymentAction(manuscriptId: string): Promise<Initi
   }
   if (manuscript.status !== "APPROVED" && manuscript.status !== "PAYMENT_PENDING") {
     return { success: false, error: "This manuscript is not awaiting payment." };
+  }
+
+  const rateLimit = checkRateLimit(`payment-initiate:${user.id}`, PAYMENT_RATE_LIMIT, PAYMENT_RATE_WINDOW_MS);
+  if (!rateLimit.allowed) {
+    return { success: false, error: "Too many payment attempts. Please wait a minute and try again." };
   }
 
   // The fee is always read fresh from server-side config — never accepted
@@ -168,6 +180,11 @@ export async function verifyPaymentAction({
 
   if (manuscript.primary_author_id !== user.id) {
     return { success: false, errors: { _form: ["You are not authorized to verify this payment."] } };
+  }
+
+  const rateLimit = checkRateLimit(`payment-verify:${user.id}`, PAYMENT_RATE_LIMIT, PAYMENT_RATE_WINDOW_MS);
+  if (!rateLimit.allowed) {
+    return { success: false, errors: { _form: ["Too many verification attempts. Please wait a minute and try again."] } };
   }
 
   if (payment.status === "COMPLETED") {

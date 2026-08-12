@@ -35,11 +35,29 @@ function isPaymentEntity(value: unknown): value is RazorpayPaymentEntity {
   return typeof v.id === "string" && typeof v.order_id === "string" && typeof v.amount === "number" && typeof v.currency === "string";
 }
 
+// Real Razorpay webhook payloads are a few KB at most. Unlike Server
+// Actions (Next.js enforces a 1MB default body limit on those), a raw
+// Route Handler has no built-in cap — request.text() would otherwise
+// buffer an arbitrarily large body into memory before signature
+// verification ever runs. Content-Length is attacker-controllable (it can
+// be omitted or lied about under chunked encoding), so this is a
+// best-effort early rejection, not a hard guarantee — but it stops the
+// common case cheaply, before any buffering happens.
+const MAX_WEBHOOK_BODY_BYTES = 256 * 1024;
+
 export async function POST(request: NextRequest) {
+  const contentLength = Number(request.headers.get("content-length") ?? "0");
+  if (contentLength > MAX_WEBHOOK_BODY_BYTES) {
+    return NextResponse.json({ error: "Payload too large." }, { status: 413 });
+  }
+
   // Signature verification requires the exact raw bytes Razorpay signed —
   // must be read before any JSON parsing, which would otherwise normalize
   // whitespace/key order and break the HMAC comparison.
   const rawBody = await request.text();
+  if (rawBody.length > MAX_WEBHOOK_BODY_BYTES) {
+    return NextResponse.json({ error: "Payload too large." }, { status: 413 });
+  }
   const signature = request.headers.get("x-razorpay-signature");
 
   if (!signature) {

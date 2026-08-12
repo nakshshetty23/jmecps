@@ -5,8 +5,17 @@ import { db } from "@/lib/db";
 import { getUserRole } from "@/lib/auth/rbac";
 import { getPresignedDownloadUrl, resolveObjectKeyFromFileUrl } from "@/lib/storage/r2";
 import { logAuditEvent } from "@/lib/audit/logger";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export type DownloadActionResult = { success: true; url: string } | { success: false; error: string };
+
+// Each call mints a real R2-signed URL and writes an audit row — cheap
+// individually, but nothing else here bounds how often an authorized caller
+// (owner or SUPER_ADMIN) can invoke it. Same limit/window as upload.ts's
+// upload-url limiter, the closest existing precedent for a per-user,
+// per-signed-URL-mint cap.
+const DOWNLOAD_URL_RATE_LIMIT = 20;
+const DOWNLOAD_URL_RATE_WINDOW_MS = 60 * 1000;
 
 // Manuscript file downloads are restricted to the original uploader
 // (primary_author_id — the same field src/lib/actions/upload.ts already
@@ -46,6 +55,11 @@ export async function getManuscriptDownloadUrlAction(manuscriptId: string): Prom
       metadata: { role },
     });
     return { success: false, error: "You are not authorized to download this file." };
+  }
+
+  const rateLimit = checkRateLimit(`download-url:${user.id}`, DOWNLOAD_URL_RATE_LIMIT, DOWNLOAD_URL_RATE_WINDOW_MS);
+  if (!rateLimit.allowed) {
+    return { success: false, error: "Too many download requests. Please wait a minute and try again." };
   }
 
   const objectKey = resolveObjectKeyFromFileUrl(manuscript.file_url);
