@@ -220,9 +220,14 @@ export async function publishManuscriptAction(manuscriptId: string): Promise<Act
     throw err;
   }
 
+  // published_at is set only here, guarded by the same atomic CAS as the
+  // status write (the WHERE clause only matches while still
+  // PAYMENT_COMPLETED) — since PUBLISHED has no outgoing edges in the state
+  // graph, this update can only ever succeed once per manuscript, so
+  // there's no separate "don't overwrite if already set" check needed.
   const result = await db.manuscript.updateMany({
     where: { id: manuscriptId, status: "PAYMENT_COMPLETED" },
-    data: { status: "PUBLISHED" },
+    data: { status: "PUBLISHED", published_at: new Date() },
   });
   if (result.count === 0) {
     return { success: false, errors: { _form: ["This manuscript's status already changed. Please refresh and try again."] } };

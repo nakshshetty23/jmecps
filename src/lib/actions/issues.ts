@@ -63,6 +63,10 @@ export interface IssueManuscriptRow {
   manuscriptCode: string;
   title: string;
   primaryAuthorName: string;
+  // Phase 6.6: manuscript.published_at, not updated_at (issue assignment
+  // itself writes to this same row and would otherwise corrupt the date
+  // shown here) — null for a manuscript published before this field existed.
+  publishedAt: Date | null;
 }
 
 export interface IssueDetail {
@@ -77,12 +81,16 @@ export interface IssueDetail {
   availableManuscripts: IssueManuscriptRow[];
 }
 
-async function toManuscriptRow(m: { id: string; title: string; created_at: Date; primary_author_id: string }, nameById: Map<string, string>): Promise<IssueManuscriptRow> {
+async function toManuscriptRow(
+  m: { id: string; title: string; created_at: Date; primary_author_id: string; published_at: Date | null },
+  nameById: Map<string, string>
+): Promise<IssueManuscriptRow> {
   return {
     id: m.id,
     manuscriptCode: getManuscriptCode(m.id, m.created_at),
     title: m.title,
     primaryAuthorName: nameById.get(m.primary_author_id) ?? "Unknown",
+    publishedAt: m.published_at,
   };
 }
 
@@ -96,13 +104,13 @@ export async function getIssueDetailAction(issueId: string): Promise<IssueDetail
   const [assigned, available] = await Promise.all([
     db.manuscript.findMany({
       where: { issue_id: issueId, status: "PUBLISHED" },
-      select: { id: true, title: true, created_at: true, primary_author_id: true },
-      orderBy: { updated_at: "desc" },
+      select: { id: true, title: true, created_at: true, primary_author_id: true, published_at: true },
+      orderBy: [{ published_at: { sort: "desc", nulls: "last" } }, { updated_at: "desc" }],
     }),
     db.manuscript.findMany({
       where: { issue_id: null, status: "PUBLISHED" },
-      select: { id: true, title: true, created_at: true, primary_author_id: true },
-      orderBy: { updated_at: "desc" },
+      select: { id: true, title: true, created_at: true, primary_author_id: true, published_at: true },
+      orderBy: [{ published_at: { sort: "desc", nulls: "last" } }, { updated_at: "desc" }],
     }),
   ]);
 

@@ -29,7 +29,9 @@ export default function SearchResultCard({ result }: { result: SearchResultRow }
           {categoryLabel}
         </Badge>
         <span className="ml-auto font-mono text-xs text-muted-foreground">
-          {result.publishedAt.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+          {result.publishedAt
+            ? result.publishedAt.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+            : "Date unavailable"}
         </span>
       </div>
 

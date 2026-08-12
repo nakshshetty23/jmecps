@@ -1,0 +1,23 @@
+-- Phase 6.6: real, immutable manuscript publication timestamp.
+--
+-- Hand-written rather than generated via `prisma migrate dev`, for the
+-- same reason as 20260812150250_add_issue_model: this repo's migration
+-- history has a pre-existing checksum mismatch on
+-- 20260812033822_add_publication_fee_settings (from Phase 3's incident
+-- recovery), and `migrate dev`'s shadow-database drift detection refuses
+-- to proceed past it without `prisma migrate reset`, which would drop the
+-- entire database. Confirmed this is still the case by running
+-- `prisma migrate dev --create-only` first — it produced the identical
+-- "modified after it was applied... prisma migrate reset" error, and
+-- nothing was created or applied.
+--
+-- Single statement, purely additive: one new nullable column on an
+-- existing table. No default, no rename, no other column touched, no
+-- index touched. Verified against pg_indexes both before and after
+-- applying that all of manuscripts_search_vector_idx,
+-- manuscripts_title_trgm_idx, manuscripts_institution_trgm_idx,
+-- manuscripts_co_authors_trgm_idx, manuscripts_file_hash_idx,
+-- manuscripts_status_idx, manuscripts_pkey, manuscripts_issue_id_idx
+-- are unchanged.
+
+ALTER TABLE "manuscripts" ADD COLUMN "published_at" TIMESTAMP(3);

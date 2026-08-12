@@ -99,6 +99,15 @@ model Manuscript {
   // status = PUBLISHED gate every public read still goes through.
   issue_id String? @db.Uuid
   issue    Issue?  @relation(fields: [issue_id], references: [id])
+  // Set exactly once, by the PAYMENT_COMPLETED -> PUBLISHED transition
+  // (the only edge into PUBLISHED in the state graph — see
+  // src/lib/state-machine/manuscript.ts) and never overwritten afterward.
+  // Deliberately separate from updated_at (Phase 6.6): updated_at is bumped
+  // by unrelated writes to an already-published row — issue assignment/
+  // removal in src/lib/actions/issues.ts being the demonstrated case — so
+  // it can't be trusted as "when this paper was first published." NULL
+  // means never published, or published before this field existed.
+  published_at DateTime?
   created_at          DateTime         @default(now())
   updated_at          DateTime         @updatedAt
 

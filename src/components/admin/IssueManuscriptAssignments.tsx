@@ -31,6 +31,9 @@ function ManuscriptRow({
         <span className="font-mono text-xs text-muted-foreground">{row.manuscriptCode}</span>
         <span className="truncate text-sm text-foreground">{row.title}</span>
         <span className="text-xs text-muted-foreground">{row.primaryAuthorName}</span>
+        <span className="text-xs text-muted-foreground">
+          {row.publishedAt ? `Published ${row.publishedAt.toLocaleDateString("en-US")}` : "Publication date unavailable"}
+        </span>
       </div>
       <Button type="button" size="sm" variant="outline" disabled={pending} onClick={handleClick} className="shrink-0">
         {pending ? "Working…" : actionLabel}

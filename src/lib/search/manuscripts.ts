@@ -9,7 +9,11 @@ import { getManuscriptCode } from "@/lib/manuscript-code";
 // cached wrapper functions below convert Date fields to strings going in
 // and back to Date objects coming out — otherwise callers would see
 // inconsistent types depending on whether the read was a hit or a miss.
-type Serialized<T> = Omit<T, "publishedAt"> & { publishedAt: string };
+// publishedAt is nullable (Phase 6.6) — a manuscript published before this
+// field existed, or reached PUBLISHED through a path that predates it, has
+// no reliable first-publication timestamp, and null is the honest value
+// rather than a fabricated one.
+type Serialized<T> = Omit<T, "publishedAt"> & { publishedAt: string | null };
 
 // Full-text search over published manuscripts.
 //
@@ -41,7 +45,10 @@ export interface SearchResultRow {
   institution: string;
   correspondingAuthorName: string | null;
   authors: AuthorSummary[];
-  publishedAt: Date;
+  // Null for a manuscript that reached PUBLISHED before this field existed
+  // (or through a path that predates it) — see Manuscript.published_at's
+  // schema comment. Never fabricated; UI must render an honest fallback.
+  publishedAt: Date | null;
   rank: number;
 }
 
@@ -56,6 +63,7 @@ interface RawSearchRow {
   co_authors: unknown;
   created_at: Date;
   updated_at: Date;
+  published_at: Date | null;
   rank: number;
 }
 
@@ -103,7 +111,7 @@ function toSearchPage(rows: RawSearchRow[], totalCount: number, page: number, li
       institution: r.institution,
       correspondingAuthorName: correspondingAuthorName(r.co_authors),
       authors: authorSummaries(r.co_authors),
-      publishedAt: r.updated_at,
+      publishedAt: r.published_at,
       rank: r.rank,
     })),
     totalCount,
@@ -115,10 +123,17 @@ function toSearchPage(rows: RawSearchRow[], totalCount: number, page: number, li
 
 type SortMode = "relevance" | "newest" | "oldest";
 
+// published_at (Phase 6.6) is the real ordering signal for "newest"/
+// "oldest" — these modes are explicitly about publication recency, not
+// last-edited time. NULLS LAST on the DESC path keeps manuscripts with no
+// recorded publication date (published before this field existed) from
+// jumping to the front of "newest" instead of sinking to the back;
+// updated_at stays only as a deterministic tiebreaker, never as a
+// displayed value.
 function orderClause(sort: SortMode, hasRank: boolean): Prisma.Sql {
-  if (sort === "oldest") return Prisma.sql`ORDER BY updated_at ASC`;
-  if (sort === "newest" || !hasRank) return Prisma.sql`ORDER BY updated_at DESC`;
-  return Prisma.sql`ORDER BY rank DESC, updated_at DESC`;
+  if (sort === "oldest") return Prisma.sql`ORDER BY published_at ASC NULLS LAST, updated_at ASC`;
+  if (sort === "newest" || !hasRank) return Prisma.sql`ORDER BY published_at DESC NULLS LAST, updated_at DESC`;
+  return Prisma.sql`ORDER BY rank DESC, published_at DESC NULLS LAST, updated_at DESC`;
 }
 
 async function runSearch(
@@ -143,7 +158,7 @@ async function runSearch(
 
   const rows = await db.$queryRaw<RawSearchRow[]>(
     Prisma.sql`
-      SELECT id, title, abstract, keywords, subject_category, sit_conference_flag, institution, co_authors, created_at, updated_at,
+      SELECT id, title, abstract, keywords, subject_category, sit_conference_flag, institution, co_authors, created_at, updated_at, published_at,
              ${rankExpr ?? Prisma.sql`0`} as rank
       FROM manuscripts
       WHERE ${where}
@@ -186,7 +201,11 @@ async function searchPublishedManuscriptsUncached({
   const filters: Prisma.Sql[] = [];
   if (category) filters.push(Prisma.sql`subject_category = ${category}`);
   if (track) filters.push(Prisma.sql`sit_conference_flag = ${track === "SIT_CONF"}`);
-  if (year) filters.push(Prisma.sql`extract(year from updated_at) = ${year}`);
+  // A manuscript with no recorded published_at (see the field's schema
+  // comment) can't honestly match a "filter by publication year" query —
+  // extract(year from NULL) is NULL, so it's correctly excluded rather
+  // than matched against a guessed year.
+  if (year) filters.push(Prisma.sql`extract(year from published_at) = ${year}`);
 
   if (!trimmed) {
     const browseResult = await runSearch(null, null, filters, safePage, limit, sort);
@@ -230,13 +249,13 @@ export async function searchPublishedManuscripts(params: SearchParams): Promise<
   const cached = await unstable_cache(
     async () => {
       const result = await searchPublishedManuscriptsUncached(params);
-      return { ...result, rows: result.rows.map((r) => ({ ...r, publishedAt: r.publishedAt.toISOString() })) };
+      return { ...result, rows: result.rows.map((r) => ({ ...r, publishedAt: r.publishedAt ? r.publishedAt.toISOString() : null })) };
     },
     ["search-published-manuscripts", cacheKey],
     { tags: ["search-results"], revalidate: 60 }
   )();
 
-  return { ...cached, rows: cached.rows.map((r) => ({ ...r, publishedAt: new Date(r.publishedAt) })) };
+  return { ...cached, rows: cached.rows.map((r) => ({ ...r, publishedAt: r.publishedAt ? new Date(r.publishedAt) : null })) };
 }
 
 export interface PublishedManuscriptDetail extends SearchResultRow {
@@ -265,7 +284,7 @@ async function getPublishedManuscriptDetailUncached(id: string): Promise<Publish
     track: manuscript.sit_conference_flag ? "SIT_CONF" : "STANDARD",
     institution: manuscript.institution,
     correspondingAuthorName: correspondingAuthorName(manuscript.co_authors),
-    publishedAt: manuscript.updated_at,
+    publishedAt: manuscript.published_at,
     rank: 0,
     authors: coAuthors.map((a) => ({
       fullName: [a.firstName, a.lastName].filter(Boolean).join(" ") || "Unknown",
@@ -285,14 +304,14 @@ export async function getPublishedManuscriptDetail(id: string): Promise<Publishe
     async () => {
       const result = await getPublishedManuscriptDetailUncached(id);
       if (!result) return null;
-      return { ...result, publishedAt: result.publishedAt.toISOString() } satisfies Serialized<PublishedManuscriptDetail>;
+      return { ...result, publishedAt: result.publishedAt ? result.publishedAt.toISOString() : null } satisfies Serialized<PublishedManuscriptDetail>;
     },
     ["published-manuscript-detail", id],
     { tags: ["search-results", `article-${id}`], revalidate: 3600 }
   )();
 
   if (!cached) return null;
-  return { ...cached, publishedAt: new Date(cached.publishedAt) };
+  return { ...cached, publishedAt: cached.publishedAt ? new Date(cached.publishedAt) : null };
 }
 
 // Called from every manuscript transition (src/lib/actions/manuscript-
@@ -324,18 +343,18 @@ export interface IssueManuscriptSummary {
   title: string;
   correspondingAuthorName: string | null;
   authors: AuthorSummary[];
-  // Same field/meaning as SearchResultRow.publishedAt and the article
-  // page's "Published <date>" line (manuscript.updated_at) — not a new
-  // field, just surfaced here too rather than inventing a second notion of
-  // "when this paper was published."
-  publishedAt: Date;
+  // Same field/meaning as SearchResultRow.publishedAt (Phase 6.6:
+  // manuscript.published_at, not updated_at — see that field's schema
+  // comment for why). Nullable for manuscripts that reached PUBLISHED
+  // before this field existed.
+  publishedAt: Date | null;
 }
 
 async function getPublishedManuscriptsForIssueUncached(issueId: string): Promise<IssueManuscriptSummary[]> {
   const rows = await db.manuscript.findMany({
     where: { issue_id: issueId, status: "PUBLISHED" },
-    select: { id: true, title: true, co_authors: true, updated_at: true },
-    orderBy: { updated_at: "desc" },
+    select: { id: true, title: true, co_authors: true, published_at: true, updated_at: true },
+    orderBy: [{ published_at: { sort: "desc", nulls: "last" } }, { updated_at: "desc" }],
   });
 
   return rows.map((r) => ({
@@ -343,7 +362,7 @@ async function getPublishedManuscriptsForIssueUncached(issueId: string): Promise
     title: r.title,
     correspondingAuthorName: correspondingAuthorName(r.co_authors),
     authors: authorSummaries(r.co_authors),
-    publishedAt: r.updated_at,
+    publishedAt: r.published_at,
   }));
 }
 
@@ -355,13 +374,13 @@ export async function getPublishedManuscriptsForIssue(issueId: string): Promise<
   const cached = await unstable_cache(
     async () => {
       const rows = await getPublishedManuscriptsForIssueUncached(issueId);
-      return rows.map((r) => ({ ...r, publishedAt: r.publishedAt.toISOString() }));
+      return rows.map((r) => ({ ...r, publishedAt: r.publishedAt ? r.publishedAt.toISOString() : null }));
     },
     ["published-manuscripts-for-issue", issueId],
     { tags: ["search-results", `issue-${issueId}`], revalidate: 60 }
   )();
 
-  return cached.map((r) => ({ ...r, publishedAt: new Date(r.publishedAt) }));
+  return cached.map((r) => ({ ...r, publishedAt: r.publishedAt ? new Date(r.publishedAt) : null }));
 }
 
 export interface PublicIssueSummary {

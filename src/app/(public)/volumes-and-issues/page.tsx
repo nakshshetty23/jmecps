@@ -15,7 +15,8 @@ export const metadata: Metadata = {
 // issue's manuscript list is independently re-filtered to
 // status = PUBLISHED, so even a manuscript still carrying an issue_id from
 // before it was, say, withdrawn can never surface publicly.
-function formatDate(date: Date): string {
+function formatDate(date: Date | null): string {
+  if (!date) return "Publication date unavailable";
   return date.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
@@ -44,7 +45,9 @@ async function IssueSection({ issue }: { issue: PublicIssueSummary }) {
                 <p className="font-mono text-xs text-accent uppercase tracking-widest">
                   {m.authors.length > 0 ? m.authors.map((a) => a.fullName).join(", ") : (m.correspondingAuthorName ?? "Unknown")}
                 </p>
-                <p className="font-mono text-xs text-text opacity-60">Published {formatDate(m.publishedAt)}</p>
+                <p className="font-mono text-xs text-text opacity-60">
+                  {m.publishedAt ? `Published ${formatDate(m.publishedAt)}` : "Publication date unavailable"}
+                </p>
               </div>
             </li>
           ))}

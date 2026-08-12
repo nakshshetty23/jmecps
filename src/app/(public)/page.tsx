@@ -29,7 +29,9 @@ async function getHomepagePublications(): Promise<PublicationCardData[] | null> 
           ? row.authors.map((a) => a.fullName).join(", ")
           : (row.correspondingAuthorName ?? "Unknown"),
       abstract: row.abstract,
-      date: row.publishedAt.toLocaleDateString("en-US", { year: "numeric", month: "long" }),
+      date: row.publishedAt
+        ? row.publishedAt.toLocaleDateString("en-US", { year: "numeric", month: "long" })
+        : "Publication date unavailable",
     }));
   } catch (err) {
     console.error("Failed to load latest publications for the homepage:", err);

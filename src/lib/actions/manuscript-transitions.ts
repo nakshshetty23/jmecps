@@ -101,9 +101,15 @@ export async function transitionManuscriptAction({
   }
 
   // Atomic guard: only applies if the row is still in the expected state.
+  // This is the other path (besides publishManuscriptAction) that can set
+  // targetStatus = PUBLISHED — the SUPER_ADMIN "override state" control in
+  // EditorialQueueTable.tsx calls this action directly, not the dedicated
+  // one — so published_at has to be set here too, under the same guard.
+  // PUBLISHED has no outgoing edges (see the state graph), so this can
+  // only ever succeed once per manuscript regardless of which path got here.
   const result = await db.manuscript.updateMany({
     where: { id: manuscriptId, status: existing.status },
-    data: { status: targetStatus },
+    data: targetStatus === "PUBLISHED" ? { status: targetStatus, published_at: new Date() } : { status: targetStatus },
   });
 
   if (result.count === 0) {

@@ -32,7 +32,11 @@ export async function generateMetadata({
     other: {
       citation_title: article.title,
       citation_author: article.authors.map((a) => a.fullName),
-      citation_publication_date: article.publishedAt.toISOString().slice(0, 10).replace(/-/g, "/"),
+      // Omitted entirely (not a fabricated fallback date) when this
+      // manuscript has no recorded published_at.
+      ...(article.publishedAt
+        ? { citation_publication_date: article.publishedAt.toISOString().slice(0, 10).replace(/-/g, "/") }
+        : {}),
       citation_journal_title: "Journal of Mechanical, Electronics and Cyber Physical Systems",
       citation_abstract: article.abstract,
       citation_keywords: article.keywords.join("; "),
@@ -86,8 +90,9 @@ export default async function ArticleDetailPage({
       </div>
 
       <p className="font-mono text-xs text-muted-foreground">
-        Published{" "}
-        {article.publishedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+        {article.publishedAt
+          ? `Published ${article.publishedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`
+          : "Publication date unavailable"}
       </p>
 
       <Card>
