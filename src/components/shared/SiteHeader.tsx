@@ -56,7 +56,13 @@ export default async function SiteHeader() {
             <NavigationMenuList>
               {NAV_LINKS.map((link) => (
                 <NavigationMenuItem key={link.href}>
-                  <NavigationMenuLink render={<Link href={link.href} />}>
+                  {/* Guests: every one of these except "/" now requires auth
+                      (Phase 2) and would just redirect to /login — Next.js's
+                      default viewport prefetch was firing that redirect for
+                      every nav item on every page load, each one counting
+                      against /login's rate limit before a guest ever clicked
+                      anything. Signed-in users still get normal prefetching. */}
+                  <NavigationMenuLink render={<Link href={link.href} prefetch={session ? undefined : false} />}>
                     {link.title}
                   </NavigationMenuLink>
                 </NavigationMenuItem>
@@ -126,6 +132,7 @@ export default async function SiteHeader() {
                     <Link
                       key={link.href}
                       href={link.href}
+                      prefetch={session ? undefined : false}
                       className="px-2 py-2.5 text-sm text-foreground hover:text-accent transition-colors"
                     >
                       {link.title}
