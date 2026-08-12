@@ -46,13 +46,17 @@ function SidebarContent() {
       <div className="mt-8 pt-6 border-t border-border">
         <div className="bg-background border border-border p-5">
           <h4 className="font-mono text-accent text-xs mb-3 uppercase tracking-widest">[ METRICS ]</h4>
+          {/* Not backed by JournalSettings or any other table — no such
+              figures are computed or stored anywhere in this codebase, so
+              this reports that honestly rather than showing a fabricated
+              number as a verified journal statistic. */}
           <div className="flex justify-between items-center text-xs font-mono text-text opacity-80 mb-2 border-b border-border pb-2">
             <span>IMPACT_FACTOR:</span>
-            <span className="font-bold text-primary">4.2</span>
+            <span className="font-bold text-muted-foreground">Not yet available</span>
           </div>
           <div className="flex justify-between items-center text-xs font-mono text-text opacity-80 pt-1">
             <span>ACCEPTANCE_RATE:</span>
-            <span className="font-bold text-primary">28%</span>
+            <span className="font-bold text-muted-foreground">Not yet available</span>
           </div>
         </div>
       </div>
