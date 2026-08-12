@@ -1,5 +1,5 @@
 import Sidebar from "@/components/shared/Sidebar";
-import LegacySubmissionDemoForm from "@/components/LegacySubmissionDemoForm";
+import AuthorPortalSubmissionForm from "@/components/AuthorPortalSubmissionForm";
 
 export default function Submission() {
   return (
@@ -11,7 +11,7 @@ export default function Submission() {
             [ AUTHOR PORTAL: SUBMIT MANUSCRIPT ]
           </h1>
 
-          <LegacySubmissionDemoForm />
+          <AuthorPortalSubmissionForm />
         </div>
         <div className="w-full lg:w-80 flex-shrink-0">
           <Sidebar />
