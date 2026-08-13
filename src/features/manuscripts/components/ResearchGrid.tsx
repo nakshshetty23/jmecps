@@ -1,13 +1,14 @@
 import Link from "next/link";
 
 // Deliberately narrower than src/lib/search/manuscripts.ts's SearchResultRow —
-// this card only ever needs these five fields, so the homepage maps down to
+// this card only ever needs these six fields, so the homepage maps down to
 // this shape rather than this component depending on the full search-result
-// type (keywords/category/track/rank aren't rendered here).
+// type (keywords/track/rank aren't rendered here).
 export interface PublicationCardData {
   id: string;
   title: string;
   author: string;
+  category: string;
   abstract: string;
   date: string;
 }
@@ -25,6 +26,9 @@ export default function ResearchGrid({ papers }: { papers: PublicationCardData[]
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       {papers.map((paper) => (
         <div key={paper.id} className="card-terminal group">
+          <span className="inline-block w-fit font-mono text-[0.7rem] uppercase tracking-widest text-muted-foreground border border-border px-2 py-0.5 bg-background mb-3">
+            {paper.category}
+          </span>
           <h3 className="heading-display text-xl mb-2 leading-tight">
             <Link href={`/articles/${paper.id}`} className="hover:text-primary transition-none">
               {paper.title}
@@ -39,7 +43,7 @@ export default function ResearchGrid({ papers }: { papers: PublicationCardData[]
               DAT: {paper.date}
             </span>
             <Link href={`/articles/${paper.id}`} className="inline-flex items-center text-accent hover:bg-accent hover:text-white px-2 py-1 transition-none uppercase tracking-widest border border-transparent hover:border-accent">
-              [ READ ]
+              [ READ PAPER ]
             </Link>
           </div>
         </div>

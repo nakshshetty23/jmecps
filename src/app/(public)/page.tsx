@@ -1,6 +1,7 @@
 import Sidebar from "@/components/shared/Sidebar";
 import ResearchGrid, { type PublicationCardData } from "@/features/manuscripts/components/ResearchGrid";
 import { searchPublishedManuscripts } from "@/lib/search/manuscripts";
+import { SUBJECT_CATEGORIES, SUBJECT_CATEGORY_LABELS } from "@/lib/validations/submission";
 import { Metadata } from "next";
 import Link from "next/link";
 
@@ -13,26 +14,32 @@ export const metadata: Metadata = {
 // paginated, matching the 2-column card grid's existing visual layout.
 const HOMEPAGE_PUBLICATION_LIMIT = 4;
 
-// null = the query failed (show a safe error message); [] = it succeeded
-// and there are genuinely zero published manuscripts yet (ResearchGrid
-// renders its own "No published papers yet." for that case) — kept
-// distinct so a real outage never gets silently reported as "nothing's
-// been published," and so nothing fabricated ever fills the gap.
-async function getHomepagePublications(): Promise<PublicationCardData[] | null> {
+// null = the query failed (show a safe error message); { rows: [] } = it
+// succeeded and there are genuinely zero published manuscripts yet
+// (ResearchGrid renders its own "No published papers yet." for that case)
+// — kept distinct so a real outage never gets silently reported as
+// "nothing's been published," and so nothing fabricated ever fills the gap.
+// totalCount (from the same query, not a second one) is only used to decide
+// whether to show the "view all" link to the existing public archive.
+async function getHomepagePublications(): Promise<{ rows: PublicationCardData[]; totalCount: number } | null> {
   try {
-    const { rows } = await searchPublishedManuscripts({ query: "", limit: HOMEPAGE_PUBLICATION_LIMIT });
-    return rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      author:
-        row.authors.length > 0
-          ? row.authors.map((a) => a.fullName).join(", ")
-          : (row.correspondingAuthorName ?? "Unknown"),
-      abstract: row.abstract,
-      date: row.publishedAt
-        ? row.publishedAt.toLocaleDateString("en-US", { year: "numeric", month: "long" })
-        : "Publication date unavailable",
-    }));
+    const { rows, totalCount } = await searchPublishedManuscripts({ query: "", limit: HOMEPAGE_PUBLICATION_LIMIT });
+    return {
+      rows: rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        author:
+          row.authors.length > 0
+            ? row.authors.map((a) => a.fullName).join(", ")
+            : (row.correspondingAuthorName ?? "Unknown"),
+        category: SUBJECT_CATEGORY_LABELS[row.category as (typeof SUBJECT_CATEGORIES)[number]] ?? row.category,
+        abstract: row.abstract,
+        date: row.publishedAt
+          ? row.publishedAt.toLocaleDateString("en-US", { year: "numeric", month: "long" })
+          : "Publication date unavailable",
+      })),
+      totalCount,
+    };
   } catch (err) {
     console.error("Failed to load latest publications for the homepage:", err);
     return null;
@@ -40,7 +47,7 @@ async function getHomepagePublications(): Promise<PublicationCardData[] | null> 
 }
 
 export default async function Home() {
-  const latestManuscripts = await getHomepagePublications();
+  const publications = await getHomepagePublications();
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 relative z-10">
@@ -101,12 +108,24 @@ export default async function Home() {
             <h2 className="heading-display text-2xl pb-2 mb-6 border-b border-border text-accent">
               [ LATEST PUBLICATIONS ]
             </h2>
-            {latestManuscripts === null ? (
+            {publications === null ? (
               <p className="font-mono text-sm text-text opacity-70 border border-border p-6 bg-background">
                 Unable to load publications right now. Please try again later.
               </p>
             ) : (
-              <ResearchGrid papers={latestManuscripts} />
+              <>
+                <ResearchGrid papers={publications.rows} />
+                {publications.totalCount > publications.rows.length && (
+                  <div className="mt-6 text-center">
+                    <Link
+                      href="/volumes-and-issues"
+                      className="font-mono text-xs uppercase tracking-widest text-accent hover:underline"
+                    >
+                      View All Publications →
+                    </Link>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
