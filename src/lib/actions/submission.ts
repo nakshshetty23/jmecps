@@ -7,6 +7,17 @@ import { getUserRole } from "@/lib/auth/rbac";
 import { makeDraftSchema } from "@/lib/validations/submission";
 import { getJournalSettings, getEnabledCategoryKeys } from "@/lib/journal-settings";
 import { isValidUuid } from "@/lib/id";
+import { Prisma } from "@/generated/prisma/client";
+
+// Postgres foreign_key_violation — thrown if primary_author_id has no
+// matching public.users row. This can only happen for an authenticated
+// Supabase identity whose public.users row is missing (e.g. deleted
+// directly outside the app; the signup trigger always creates one, and
+// nothing in this app ever deletes a public.users row). Same
+// detect-then-return-clean-error pattern as issues.ts's isUniqueViolation.
+function isForeignKeyViolation(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003";
+}
 
 // A manuscript stays editable through a revision cycle, not just before its
 // first submission: REVISION_REQUIRED is the editor sending it back to the
@@ -93,19 +104,30 @@ export async function saveDraftAction(
     return { success: true, data: { id: updated.id } };
   }
 
-  const created = await db.manuscript.create({
-    data: {
-      title: data.title,
-      abstract: data.abstract,
-      keywords: data.keywords,
-      primary_author_id: user.id,
-      co_authors: data.authors,
-      institution,
-      subject_category: data.category ?? "",
-      references: data.references,
-      status: "DRAFT",
-    },
-  });
+  let created;
+  try {
+    created = await db.manuscript.create({
+      data: {
+        title: data.title,
+        abstract: data.abstract,
+        keywords: data.keywords,
+        primary_author_id: user.id,
+        co_authors: data.authors,
+        institution,
+        subject_category: data.category ?? "",
+        references: data.references,
+        status: "DRAFT",
+      },
+    });
+  } catch (err) {
+    if (isForeignKeyViolation(err)) {
+      return {
+        success: false,
+        errors: { _form: ["Your account could not be found. Please sign out and sign in again."] },
+      };
+    }
+    throw err;
+  }
 
   revalidatePath("/dashboard");
   return { success: true, data: { id: created.id } };
