@@ -9,6 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { createClient } from "@/lib/supabase/client";
 import { getDashboardPath, type Role } from "@/lib/auth/rbac";
 import { recordRegisterAction } from "@/lib/actions/auth-events";
+import { registerAccountAction } from "@/lib/actions/auth-register";
 import { registerSchema } from "@/lib/validations/auth";
 import OtpVerifyStep, { type OtpActionResult } from "@/components/auth/OtpVerifyStep";
 
@@ -45,22 +46,17 @@ export default function RegisterPage() {
 
     setIsSubmitting(true);
     try {
-      const supabase = createClient();
-      // With "Confirm email" enabled on this project, signUp() creates the
-      // account but withholds a session (data.session is null) until the
-      // OTP below is verified — the account exists but isn't usable yet.
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: parsed.data.email,
-        password: parsed.data.password,
-        options: {
-          data: {
-            full_name: parsed.data.fullName,
-            institutional_affiliation: parsed.data.institutionalAffiliation,
-          },
-        },
-      });
-      if (signUpError) {
-        setError(signUpError.message);
+      // Password verification/account creation happens server-side (see
+      // registerAccountAction in auth-register.ts) — same reasoning as
+      // login's verifyPasswordAndSendLoginOtpAction: this re-validates the
+      // exact same registerSchema server-side rather than trusting the
+      // client's own check alone. With "Confirm email" enabled on this
+      // project, signUp() still creates the account but withholds a session
+      // until the OTP below is verified — the account exists but isn't
+      // usable yet.
+      const result = await registerAccountAction(parsed.data);
+      if (!result.success) {
+        setError(result.error ?? "Could not create your account. Please try again.");
         return;
       }
       setStep("otp");

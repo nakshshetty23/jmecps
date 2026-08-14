@@ -75,13 +75,25 @@ const EDITOR_TRANSITIONS = new Set<TransitionKey>([
   key("RESUBMITTED", "APPROVED"),
   key("RESUBMITTED", "REJECTED"),
   key("SUBMITTED", "REJECTED"),
-  key("PAYMENT_COMPLETED", "PUBLISHED"),
 ]);
 
 const SYSTEM_TRANSITIONS = new Set<TransitionKey>([
   key("APPROVED", "PAYMENT_PENDING"),
   key("PAYMENT_PENDING", "PAYMENT_COMPLETED"),
 ]);
+
+// Phase 1.3.22 audit finding: PAYMENT_COMPLETED -> PUBLISHED used to live in
+// EDITOR_TRANSITIONS above, which — because isPermittedForActor's SUPER_ADMIN
+// case is "EDITOR_TRANSITIONS.has(k) || ...", not a role hierarchy — meant a
+// plain ADMIN got this edge too, not just SUPER_ADMIN. Confirmed live: a
+// plain ADMIN calling transitionManuscriptAction directly (bypassing the
+// generic-transition UI, which only ever offers this edge to SUPER_ADMIN —
+// see canOverrideState in review/page.tsx) could publish a manuscript, even
+// though the dedicated publishManuscriptAction (src/lib/actions/
+// publication.ts) explicitly restricts publishing to SUPER_ADMIN only. This
+// set exists so that edge is granted to SUPER_ADMIN exclusively, matching
+// that dedicated action's own intent, without touching any other transition.
+const SUPER_ADMIN_ONLY_TRANSITIONS = new Set<TransitionKey>([key("PAYMENT_COMPLETED", "PUBLISHED")]);
 
 function isPermittedForActor(from: ManuscriptStatus, to: ManuscriptStatus, actor: Actor): boolean {
   const k = key(from, to);
@@ -95,8 +107,9 @@ function isPermittedForActor(from: ManuscriptStatus, to: ManuscriptStatus, actor
     case "SUPER_ADMIN":
       // Universal, per this codebase's RBAC design (SUPER_ADMIN outranks
       // every domain-bounded role) — editor actions plus the ability to
-      // manually complete a payment transition if a webhook fails.
-      return EDITOR_TRANSITIONS.has(k) || SYSTEM_TRANSITIONS.has(k);
+      // manually complete a payment transition if a webhook fails, plus the
+      // SUPER_ADMIN-exclusive transitions (currently just publishing).
+      return EDITOR_TRANSITIONS.has(k) || SYSTEM_TRANSITIONS.has(k) || SUPER_ADMIN_ONLY_TRANSITIONS.has(k);
     default:
       return false;
   }

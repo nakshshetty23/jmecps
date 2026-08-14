@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { safeAuthErrorMessage } from "@/lib/auth/safe-auth-error";
 
 export interface LoginStepResult {
   success: boolean;
@@ -21,22 +22,6 @@ export interface LoginStepResult {
 // account-enumeration oracle).
 const LOGIN_ATTEMPT_RATE_LIMIT = 5;
 const LOGIN_ATTEMPT_RATE_WINDOW_MS = 60 * 1000;
-
-// AuthError.status is always present on a real GoTrue API response (4xx —
-// "Invalid login credentials", "Email not confirmed", rate limits, etc.) —
-// those are the intentional, user-facing messages this form is designed to
-// show. A 5xx/undefined status means something failed before or outside a
-// normal API response (GoTrue itself erroring, a transient fetch failure) —
-// Supabase's own message text for those is not written to be shown to an
-// end user and has, in practice, surfaced internal wording like "Database
-// error querying schema" during this project's own testing. Anonymous,
-// unauthenticated callers reach this on every login attempt, so this is the
-// one place in the app where a third-party SDK's error message is passed
-// straight through to the least-trusted possible caller.
-function safeAuthErrorMessage(error: { message: string; status?: number }, fallback: string): string {
-  if (typeof error.status === "number" && error.status < 500) return error.message;
-  return fallback;
-}
 
 // Supabase has no native email-OTP second factor (its MFA system only
 // supports 'totp'/'phone' factor types — verified against the installed

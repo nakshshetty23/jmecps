@@ -71,7 +71,19 @@ export async function transitionManuscriptAction({
     assertTransition(existing.status, targetStatus, role as Actor);
   } catch (err) {
     if (err instanceof InvalidStateTransitionError) {
-      return { success: false, errors: { _form: [err.message] } };
+      // Phase 1.3.23 audit finding: this used to return err.message
+      // verbatim, which embeds the manuscript's literal current/target
+      // status (e.g. "DRAFT -> UNDER_REVIEW is not a valid edge..."). Unlike
+      // RESEARCHER (ownership-checked above), ADMIN/SUPER_ADMIN reach this
+      // point for ANY manuscript id with no editor-visibility gate — so
+      // that message let an ADMIN probe a manuscript's exact lifecycle
+      // status (including DRAFT, which editorial.ts's EDITOR_VISIBLE_
+      // STATUSES deliberately treats as invisible to editors) without ever
+      // being able to actually mutate it. Every other call site in this
+      // codebase (finalize-submission.ts, editorial.ts, payment.ts,
+      // publication.ts) already uses a generic message for this exact error
+      // type — this brings the one outlier in line with that pattern.
+      return { success: false, errors: { _form: ["This status change is not valid for this manuscript's current state."] } };
     }
     if (err instanceof UnauthorizedTransitionError) {
       return { success: false, errors: { _form: ["You are not authorized to make this change."] } };
