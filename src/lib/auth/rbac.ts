@@ -18,6 +18,12 @@ type GatedCategory = Exclude<RouteCategory, "public" | "auth">;
 const ROUTE_RULES: { prefix: string; category: RouteCategory }[] = [
   { prefix: "/login", category: "auth" },
   { prefix: "/register", category: "auth" },
+  // Same treatment as /login and /register: a signed-in user has no need
+  // to request a reset for themselves, so send them to their dashboard
+  // instead (Phase 1.3.5.1). Unlike /reset-password below, visiting this
+  // page never establishes a session, so there's no risk of the "signed-in
+  // user gets redirected away mid-flow" problem that page has to avoid.
+  { prefix: "/forgot-password", category: "auth" },
   { prefix: "/dashboard", category: "researcher" },
   { prefix: "/submissions", category: "researcher" },
   { prefix: "/review", category: "admin" },
@@ -38,7 +44,19 @@ const ROUTE_RULES: { prefix: string; category: RouteCategory }[] = [
 // "authenticated" default below and get redirected to /login, which
 // Razorpay's server can't follow — breaking the webhook entirely. This is
 // a single exact path, not a broad /api/* exemption.
-const PUBLIC_EXACT_PATHS = new Set<string>(["/", "/verify-notice", "/403", "/api/webhooks/razorpay"]);
+//
+// /reset-password (Phase 1.3.5.1) is here rather than in ROUTE_RULES'
+// "auth" category on purpose: clicking a real recovery link establishes a
+// Supabase session client-side (that's the whole point — see that page's
+// onAuthStateChange handling), and "auth" category redirects any
+// already-signed-in visitor away to their dashboard. If this page were
+// "auth"-classified, the moment the recovery session lands, a page refresh
+// (or the very next server-rendered check) would boot the user out before
+// they could ever set a new password. Public/unconditional access here —
+// matching verify-notice/403's own "must never itself require auth"
+// reasoning — lets the page's own client-side logic decide what to show
+// regardless of whether a session exists yet.
+const PUBLIC_EXACT_PATHS = new Set<string>(["/", "/verify-notice", "/403", "/reset-password", "/api/webhooks/razorpay"]);
 
 // Domain-bounded, not a `role >= required` hierarchy: RESEARCHER and ADMIN
 // are mutually exclusive over each other's routes. Only SUPER_ADMIN has
